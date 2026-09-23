@@ -9,4 +9,7 @@ fi
 echo "Success: Running with root privileges."
 #end code gen
 
-echo "Make sure APT repos are set up before continuing the script.
+echo "Make sure APT repos are set up before continuing the script."
+#code gen#
+read -p "Press [Enter] to continue..."
+#end code gen
