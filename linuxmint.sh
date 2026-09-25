@@ -104,7 +104,10 @@ done
 
 read -p "Does the README need extra user management? If so, mkdir group, create txt named group.txt and user.txt, self explanatory. User is mkdir user, user.txt. Tupe G for group, U for users"
 
-case "$usrmng" in
+case "$usermng" in
+    [yY] | [yY][eE][sS] )
+        echo "mkdir group, create txt named group.txt and user.txt, self explanatory. User is mkdir user, user.txt. Tupe G for group, U for users"
+        case "$usrmng" in
     [gG] | [gG][rR][oO][uU][pP]  )
         cd group
         $groupmake=(cat group.txt)
@@ -122,11 +125,23 @@ case "$usrmng" in
     * )
         echo "Invalid response."
         ;;
+esac
+
+        ;;
+    [nN] | [nN][oO] )
+        echo "If you need to, it is *sudo adduser* or sudo *useradd*."
+        ;;
+    * )
+        echo "Invalid response."
+        ;;
+esac
+
 
 for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
-    chage -M 90 "$user"
+    if !$user==$SUDO_USER
+    chage -M 60 "$user"
 done
-read -p "All *unhidden* users' max password age were set to 90, but there could be hidden users, check for those now."
+read -p "All other *unhidden* users' max password age were set to 60, but there could be hidden users, check for those now."
 
 #Security Configs
 
