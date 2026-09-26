@@ -129,7 +129,7 @@ esac
 
         ;;
     [nN] | [nN][oO] )
-        echo "If you need to, it is *sudo adduser* or sudo *useradd*."
+        echo "If you need to, it is [sudo adduser] or [sudo useradd]."
         ;;
     * )
         echo "Invalid response."
@@ -169,3 +169,4 @@ set_login_def "PASS_MAX_DAYS" "60"
 set_login_def "PASS_MIN_DAYS" "20"
 set_login_def "PASS_WARN_AGE" "7"
 echo "/etc/login.defs updated successfully."
+sed -i 's/nullok//g' /etc/pam.d/common-auth
