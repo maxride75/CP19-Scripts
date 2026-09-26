@@ -80,9 +80,7 @@ Priority: 0
 Auth-Type: Additional
 Auth:
 required pam_faillock.so authsucc" > /usr/share/pam-configs/faillock_reset
-pam-auth-update --enable Enforce failed login attempt counter
-pam-auth-update --enable Notify on failed login attempts
-pam-auth-update --enable Reset lockout on success
+read -p "PAM modules have been created, please enable them with pam-auth-update."
 
 #Users/Groups
 cd /home/$SUDO_USER
@@ -131,7 +129,7 @@ case "$answer" in
             echo "User $usermake made."
             ;;
         [nN] | [nN][oO] )
-        echo "If you need to, it is [sudo adduser] or [sudo useradd]."
+            echo "If you need to, it is [adduser] or [usermod -aG group]."
             ;;
         * )
             echo "Invalid response."
@@ -149,29 +147,29 @@ read -p "All other *unhidden* users' max password age were set to 60, but there 
 
 #Security Configs
 
-LOGIN_DEFS="/etc/login.defs"
+CONFIGDOC="/etc/login.defs"
 
 # Backup original file first
-cp "$LOGIN_DEFS" "${LOGIN_DEFS}.bak"
+cp "$CONFIGDOC" "${CONFIGDOC}.bak"
 
-# Function to update or add a parameter in login.defs
-set_login_def() {
+# Function to update or add a parameter in all configured docs
+set_line() {
   local key="$1"
   local value="$2"
 
   # Check if the key exists (ignoring commented lines)
-  if grep -qE "^\s*${key}\s+" "$LOGIN_DEFS"; then
+  if grep -qE "^\s*${key}\s+" "$CONFIGDOC"; then
     # Replace existing value
-    sed -i -E "s/^\s*${key}\s+.*/${key}   ${value}/" "$LOGIN_DEFS"
+    sed -i -E "s/^\s*${key}\s+.*/${key}   ${value}/" "$CONFIGDOC"
   else
     # Append if it doesn't exist
-    echo "${key}   ${value}" >> "$LOGIN_DEFS"
+    echo "${key}   ${value}" >> "$CONFIGDOC"
   fi
 }
 
-set_login_def "PASS_MAX_DAYS" "60"
-set_login_def "PASS_MIN_DAYS" "20"
-set_login_def "PASS_WARN_AGE" "7"
+set_line "PASS_MAX_DAYS" "60"
+set_line "PASS_MIN_DAYS" "20"
+set_line "PASS_WARN_AGE" "7"
 echo "/etc/login.defs updated successfully."
 
 sed -i 's/nullok//g' /etc/pam.d/common-auth
