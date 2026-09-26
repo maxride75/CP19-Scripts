@@ -17,12 +17,13 @@ read -p "Press [Enter] to continue running the script..."
 
 read -p "Are the forensics questions answered/answerable? (y/n): " answer
 
-case "$forensics" in
-    [yY] | [yY][eE][sS] )
+case "$answer" in
+    [yY] || [yY][eE][sS] )
         echo "Proceeding..."
         ;;
-    [nN] | [nN][oO] )
-        echo "Be careful while running the script to not break anything."
+    [nN] || [nN][oO] )
+        echo "Please answer them first."
+        exit 1
         ;;
     * )
         echo "Invalid response."
@@ -31,11 +32,11 @@ esac
 
 read -p "Does the README specify to not update packages? (y/n): " answer
 
-case "$pkg_update" in
-    [yY] | [yY][eE][sS] )
+case "$answer" in
+    [yY] || [yY][eE][sS] )
         echo "Update Manually"
         ;;
-    [nN] | [nN][oO] )
+    [nN] || [nN][oO] )
         echo "Proceeding..."
         apt update -y > /dev/null
         apt list --upgradable $SUDO_USER/upgraded_pkgs.txt
@@ -92,7 +93,7 @@ for admin in $(cat maybebadadmins.txt); do
     deluser "$user" sudo
 done
 
-awk -F: '$3 >= 1000 && $3 != 65534 {print $1}' /etc/passwd > /home/$SUDO_USER/machineusers.txt
+awk -F: '$3 >= 1000 && $3 <= 65534 {print $1}' /etc/passwd > /home/$SUDO_USER/machineusers.txt
 sort users.txt > users.txt
 sort machineusers.txt > machineusers.txt
 diff machineusers.txt users.txt > maybebadusers.txt
@@ -105,30 +106,32 @@ done
 read -p "Does the README need extra user management? If so, mkdir group, create txt named group.txt and user.txt, self explanatory. User is mkdir user, user.txt. Tupe G for group, U for users"
 
 case "$usermng" in
-    [yY] | [yY][eE][sS] )
+    [yY] || [yY][eE][sS] )
         echo "mkdir group, create txt named group.txt and user.txt, self explanatory. User is mkdir user, user.txt. Tupe G for group, U for users"
-        case "$usrmng" in
-    [gG] | [gG][rR][oO][uU][pP]  )
-        cd group
-        $groupmake=(cat group.txt)
-        echo "Making group $groupmake"
-        groupadd $groupmake
-        for user in $(cat user.txt); do usermod -aG $groupmake "$user"; done
-        ;;
-    [uU] | [uU][sS][eE][rR] )
-        cd user
-        $usermake=(cat user.txt)
-        echo "Making user $usermake"
-        useradd -m -s /bin/nologin $usermake
-        echo "User $usermake made."
-        ;;
-    * )
-        echo "Invalid response."
-        ;;
-esac
+            case "$usrmng" in
+        [gG] || [gG][rR][oO][uU][pP]  )
+            cd group
+            $groupmake=(cat group.txt)
+            echo "Making group $groupmake"
+            groupadd $groupmake
+            for user in $(cat user.txt); do 
+                usermod -aG $groupmake "$user"; 
+            done
+            ;;
+        [uU] || [uU][sS][eE][rR] )
+            cd user
+            $usermake=(cat user.txt)
+            echo "Making user $usermake"
+            useradd -m -s /bin/nologin $usermake
+            echo "User $usermake made."
+            ;;
+        * )
+            echo "Invalid response."
+            ;;
+    esac
 
         ;;
-    [nN] | [nN][oO] )
+    [nN] || [nN][oO] )
         echo "If you need to, it is [sudo adduser] or [sudo useradd]."
         ;;
     * )
@@ -139,7 +142,8 @@ esac
 
 for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
     if !$user==$SUDO_USER
-    chage -M 60 "$user"
+        chage -M 60 "$user"
+    fi
 done
 read -p "All other *unhidden* users' max password age were set to 60, but there could be hidden users, check for those now."
 
@@ -169,4 +173,5 @@ set_login_def "PASS_MAX_DAYS" "60"
 set_login_def "PASS_MIN_DAYS" "20"
 set_login_def "PASS_WARN_AGE" "7"
 echo "/etc/login.defs updated successfully."
+
 sed -i 's/nullok//g' /etc/pam.d/common-auth
