@@ -8,20 +8,23 @@ fi
 clear
 echo "Success: Running with root privileges."
 
-echo "Prerequisites"
-echo "Make sure APT repos are set up before continuing the script."
-echo "Copy paste the list of all users from the README (without passwords) into /home/$SUDO_USER/users.txt"
-echo "Also copy paste the list of admins from the README (without passwords and without yourself into /home/$SUDO_USER/admins.txt"
+echo "Prerequisites!"
+read -p "Make sure APT repos are set up before continuing the script."
+read -p "Copy paste the list of all users from the README (without passwords) into /home/$SUDO_USER/users.txt"
+read -p "Also copy paste the list of admins from the README (without passwords and without yourself into /home/$SUDO_USER/admins.txt"
+read -p "If the README specifies to make a new group, mkdir group in your home directory
+create txt named group.txt and user.txt, self explanatory." 
+read -p "Likewise, if the README specifies, mkdir user, user.txt. Tupe G for group, U for users at the prompt, later. It will ask you!"
 
 read -p "Press [Enter] to continue running the script..."
 
 read -p "Are the forensics questions answered/answerable? (y/n): " answer
 
 case "$answer" in
-    [yY] || [yY][eE][sS] )
+    [yY] | [yY][eE][sS] )
         echo "Proceeding..."
         ;;
-    [nN] || [nN][oO] )
+    [nN] | [nN][oO] )
         echo "Please answer them first."
         exit 1
         ;;
@@ -33,13 +36,13 @@ esac
 read -p "Does the README specify to not update packages? (y/n): " answer
 
 case "$answer" in
-    [yY] || [yY][eE][sS] )
+    [yY] | [yY][eE][sS] )
         echo "Update Manually"
         ;;
-    [nN] || [nN][oO] )
+    [nN] | [nN][oO] )
         echo "Proceeding..."
         apt update -y > /dev/null
-        apt list --upgradable $SUDO_USER/upgraded_pkgs.txt
+        apt list --upgradable > /home/$SUDO_USER/upgraded_pkgs.txt
         apt upgrade -y > /dev/null
         echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
         ;;
@@ -84,64 +87,61 @@ pam-auth-update --enable Reset lockout on success
 #Users/Groups
 cd /home/$SUDO_USER
 groupmems -g sudo -l > machineadmins.txt
-sort admins.txt > admins.txt
-sort machineadmins.txt > machineadmins.txt
-diff machineadmins.txt admins.txt > maybebadadmins.txt
-read -p "Check maybebadadmins.txt and Press [Enter] to demote them, but you can delete manually if you need to."
+sort -o admins.txt admins.txt
+sort -o machineadmins.txt  machineadmins.txt
+comm -3 machineadmins.txt admins.txt > maybebadadmins.txt
+cat maybebadadmins.txt
+echo "These are the maybe bad admins, make sure they are bad!"
+read -p "Press [Enter] to demote them!"
 for admin in $(cat maybebadadmins.txt); do
     echo "Demoting user: $admin"
-    deluser "$user" sudo
+    deluser "$admin" sudo
 done
 
 awk -F: '$3 >= 1000 && $3 <= 65534 {print $1}' /etc/passwd > /home/$SUDO_USER/machineusers.txt
-sort users.txt > users.txt
-sort machineusers.txt > machineusers.txt
-diff machineusers.txt users.txt > maybebadusers.txt
-read -p "Check maybebadusers.txt and Press [Enter] to delete them, but you can delete manually if you need to."
+sort -o users.txt users.txt
+sort -o machineusers.txt machineusers.txt
+comm -3 machineusers.txt users.txt > maybebadusers.txt
+cat maybebadusers.txt
+echo "These are the maybe bad users, make sure they are bad!"
+read -p "Press [Enter] to delete them!"
 for user in $(cat maybebadusers.txt); do
     echo "Removing user: $user"
     userdel -r "$user"
 done
 
-read -p "Does the README need extra user management? If so, mkdir group, create txt named group.txt and user.txt, self explanatory. User is mkdir user, user.txt. Tupe G for group, U for users"
+read -p "Does the README need extra user management?
+This is the prompt in which you need to type G for Group, U for User, or N for no management" answer
 
-case "$usermng" in
-    [yY] || [yY][eE][sS] )
-        echo "mkdir group, create txt named group.txt and user.txt, self explanatory. User is mkdir user, user.txt. Tupe G for group, U for users"
-            case "$usrmng" in
-        [gG] || [gG][rR][oO][uU][pP]  )
+case "$answer" in
+        [gG] | [gG][rR][oO][uU][pP]  )
             cd group
-            $groupmake=(cat group.txt)
+            groupmake=$(cat group.txt)
             echo "Making group $groupmake"
             groupadd $groupmake
             for user in $(cat user.txt); do 
                 usermod -aG $groupmake "$user"; 
             done
             ;;
-        [uU] || [uU][sS][eE][rR] )
+        [uU] | [uU][sS][eE][rR] )
             cd user
-            $usermake=(cat user.txt)
+            usermake=$(cat user.txt)
             echo "Making user $usermake"
             useradd -m -s /bin/nologin $usermake
             echo "User $usermake made."
             ;;
+        [nN] | [nN][oO] )
+        echo "If you need to, it is [sudo adduser] or [sudo useradd]."
+            ;;
         * )
             echo "Invalid response."
             ;;
-    esac
-
-        ;;
-    [nN] || [nN][oO] )
-        echo "If you need to, it is [sudo adduser] or [sudo useradd]."
-        ;;
-    * )
-        echo "Invalid response."
-        ;;
 esac
 
 
+
 for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
-    if !$user==$SUDO_USER
+    if [[ "$user" !== "$SUDO_USER" ]]; then
         chage -M 60 "$user"
     fi
 done
