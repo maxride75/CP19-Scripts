@@ -165,6 +165,7 @@ set_line "PASS_MIN_DAYS" "20"
 set_line "PASS_WARN_AGE" "7"
 echo "/etc/login.defs updated successfully."
 
+echo "kernel.dmesg_restrict=1" | sudo tee -a /etc/sysctl.d/6-dmesg-sudo.conf
 for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
     if [[ "$user" != "$SUDO_USER" ]]; then
         chage -M 60 "$user"
@@ -172,8 +173,10 @@ for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
 done
 read -p "All other *unhidden* users' max password age were set to 60, but there could be hidden users, check for those now."
 
-
-
+CONFIGDOC=/etc/sysctl.conf
+set_line "net.ipv4.tcp_syncookies =" "1"
+set_line "kernel.randomize_va_space =" "2"
+sysctl --system
 read -p "Does the README say that users need to login via SSH? (y/n): " answer
 
 case "$answer" in
@@ -188,7 +191,7 @@ case "$answer" in
         systemctl reload sshd
         ;;
     [nN] | [nN][oO] )
-        echo "Acknowledged!"
+        echo "If they don't, and sshd is running, stop it with systemctl stop sshd!"
         ;;
     * )
         echo "Invalid response."
@@ -254,7 +257,7 @@ case "$answer" in
         chmod 0644 /etc/mysql/my.cnf
         systemctl restart mysqld
         ;;
-        [nN] | [nN][oO] | [nN][oO][nN][eE] )   
+        [xX] | [nN][oO][nN][eE] )   
         echo "If a service is listed in the README, but is not addressed in the script, google it!"
     * )
         echo "Invalid response."
