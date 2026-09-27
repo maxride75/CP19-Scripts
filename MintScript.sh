@@ -138,19 +138,12 @@ esac
 
 
 
-for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
-    if [[ "$user" !== "$SUDO_USER" ]]; then
-        chage -M 60 "$user"
-    fi
-done
-read -p "All other *unhidden* users' max password age were set to 60, but there could be hidden users, check for those now."
 
 #Security Configs
-
+sed -i 's/nullok//g' /etc/pam.d/common-auth
 CONFIGDOC="/etc/login.defs"
 
 # Backup original file first
-cp "$CONFIGDOC" "${CONFIGDOC}.bak"
 
 # Function to update or add a parameter in all configured docs
 set_line() {
@@ -172,4 +165,32 @@ set_line "PASS_MIN_DAYS" "20"
 set_line "PASS_WARN_AGE" "7"
 echo "/etc/login.defs updated successfully."
 
-sed -i 's/nullok//g' /etc/pam.d/common-auth
+for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
+    if [[ "$user" != "$SUDO_USER" ]]; then
+        chage -M 60 "$user"
+    fi
+done
+read -p "All other *unhidden* users' max password age were set to 60, but there could be hidden users, check for those now."
+
+
+
+read -p "Does the README say that users need to login via SSH? (y/n): "
+
+case "$answer" in
+    [yY] | [yY][eE][sS] )
+        echo "Securing SSH!"
+        CONFIGDOC=/etc/ssh/sshd_config
+        set_line "PermitRootLogin" "no"
+        set_line "UsePAM" "yes"
+        set_line "PermitEmptyPasswords" "no"
+        set_line "DisableForwarding" "yes"
+        set_line "MaxAuthTries" "6"
+        systemctl reload sshd
+        ;;
+    [nN] | [nN][oO] )
+        echo "Acknowledged!"
+        ;;
+    * )
+        echo "Invalid response."
+        ;;
+esac
