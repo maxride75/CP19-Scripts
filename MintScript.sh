@@ -9,9 +9,9 @@ clear
 echo "Success: Running with root privileges."
 
 echo "Prerequisites!"
-read -p "Make sure APT repos are set up before continuing the script."
+read -p "Make sure apt repos are set up before continuing the script."
 read -p "Copy paste the list of all users from the README (without passwords) into /home/$SUDO_USER/users.txt"
-read -p "Also copy paste the list of admins from the README (without passwords and without yourself into /home/$SUDO_USER/admins.txt"
+read -p "Also copy paste the list of admins from the README (without passwords into /home/$SUDO_USER/admins.txt"
 read -p "If the README specifies to make a new group, mkdir group in your home directory
 create txt named group.txt and user.txt, self explanatory." 
 read -p "Likewise, if the README specifies, mkdir user, user.txt. Tupe G for group, U for users at the prompt, later. It will ask you!"
@@ -174,7 +174,7 @@ read -p "All other *unhidden* users' max password age were set to 60, but there 
 
 
 
-read -p "Does the README say that users need to login via SSH? (y/n): "
+read -p "Does the README say that users need to login via SSH? (y/n): " answer
 
 case "$answer" in
     [yY] | [yY][eE][sS] )
@@ -194,3 +194,70 @@ case "$answer" in
         echo "Invalid response."
         ;;
 esac
+
+read -p "Is the computer running a service? N for Nginx, A for Apache, F for FTP, S, for MySQL, or X for no services running/service not listed:" answer
+
+case "$answer" in
+    [nN] | [nN][gG][iI][nN][xX} )
+        echo "Securing nginx!"
+        touch nginxconfig.txt
+        echo "(single quote is double quote) In /etc/nginx/nginx.conf, in the http block.
+        Uncomment server_tokens off; 
+        client_body_buffer_size  10K;
+        client_header_buffer_size 1k;
+        client_max_body_size     8m;
+        large_client_header_buffers 2 1k;
+
+        In the server block of the file add 
+        add_header X-Frame-Options 'SAMEORIGIN' always;
+        add_header X-XSS-Protection '1; mode=block' always;
+        add_header X-Content-Type-Options 'nosniff' always;
+        if ($request_method !~ ^(GET|HEAD|POST)$ ) {
+            return 405;
+        }"
+        read -p "Due to Nginx config rules, you need to add the lines in nginxconfig.txt to /etc/nginx/nginx.conf"
+        read -p "Please run nginx -t to make sure config is correct."
+        systemctl reload nginx
+        ;;
+    [aA] | [aA][pP][aA][cC][hH][eE] )
+        echo "Securing Apache!"
+        CONFIGDOC=/etc/apache2/conf-available/security.conf
+        set_line "ServerTokens" "Prod"
+        set_line "ServerSignature" "Off"
+        set_line "TraceEnable" "Off"
+        CONFIGDOC=/etc/apache2/apache2.conf
+        set_line "Options" "-Indexes -FollowSymLinks"
+        read -p "Apache has been secured, please run apache2ctl configtest to make sure the config is ok"
+        systemctl restart apache2
+        ;;
+        [fF] | [fF][tT][pP] )
+        echo "Securing FTP!"
+        touch ftpconfg.txt
+        echo "anonymous_enable=no"> ftpconfig.txt
+        echo "chroot_local_user=yes" >> ftpconfig.txt
+        read -p "Due to FTP config rules, you need to add the lines in ftpconfig.txt to /etc/vsftpd.conf"
+        systemctl restart vsftpd
+        ;;
+        [mM] | [mM][yY][sS][qQ][lL] )
+        echo "Securing MySQL!"
+        read -p "MYSQL is cool, it can harden itself! In another terminal window, as root, run mysql_secure_installation."
+        touch mysqlconfig.txt
+        echo "Under [mysqld] enter this: 
+        bind-adress = 127.0.0.1
+        local-infile = 0
+        symbolic-links = 0
+        skip-name-resolve
+        require_secure_transport = ON"
+        read -p "Due to MySQL confg rules, you need to add the lines in mysqlconfig.txt to /etc/mysql/my.cnf"
+        read -p "Please run mysqld --validate-config to make sure the config is ok."
+        chown root:root /etc/mysql/my.cnf
+        chmod 0644 /etc/mysql/my.cnf
+        systemctl restart mysqld
+        ;;
+        [nN] | [nN][oO] | [nN][oO][nN][eE] )   
+        echo "If a service is listed in the README, but is not addressed in the script, google it!"
+    * )
+        echo "Invalid response."
+        ;;
+
+read -p "Some unauthorized services may be running on this machine, use stacer to find them. Chances are, they may be a service addressed in this script.
