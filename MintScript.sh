@@ -10,8 +10,8 @@ echo "Success: Running with root privileges."
 
 echo "Prerequisites!"
 read -p "Make sure apt repos are set up before continuing the script."
-read -p "Copy paste the list of all users from the README (without passwords) into /home/$SUDO_USER/users.txt"
-read -p "Also copy paste the list of admins from the README (without passwords into /home/$SUDO_USER/admins.txt"
+read -p "Copy paste the list of all users from the README without passwords into /home/$SUDO_USER/users.txt"
+read -p "Also copy paste the list of admins from the README without passwords into /home/$SUDO_USER/admins.txt"
 read -p "If the README specifies to make a new group, mkdir group in your home directory
 create txt named group.txt and user.txt, self explanatory." 
 read -p "Likewise, if the README specifies, mkdir user, user.txt. Tupe G for group, U for users at the prompt, later. It will ask you!"
@@ -150,12 +150,9 @@ set_line() {
   local key="$1"
   local value="$2"
 
-  # Check if the key exists (ignoring commented lines)
-  if grep -qE "^\s*${key}\s+" "$CONFIGDOC"; then
-    # Replace existing value
-    sed -i -E "s/^\s*${key}\s+.*/${key}   ${value}/" "$CONFIGDOC"
+  if grep -q "^${key}" "$CONFIGDOC"; then
+    sed -i "s/^${key}.*/  ${key}   ${value}/" "$CONFIGDOC"
   else
-    # Append if it doesn't exist
     echo "${key}   ${value}" >> "$CONFIGDOC"
   fi
 }
@@ -188,10 +185,10 @@ case "$answer" in
         set_line "PermitEmptyPasswords" "no"
         set_line "DisableForwarding" "yes"
         set_line "MaxAuthTries" "6"
-        systemctl reload sshd
+        systemctl reload ssh
         ;;
     [nN] | [nN][oO] )
-        echo "If they don't, and sshd is running, stop it with systemctl stop sshd!"
+        echo "If they don't, and sshd is running, stop it with systemctl stop ssh!"
         ;;
     * )
         echo "Invalid response."
@@ -201,7 +198,7 @@ esac
 read -p "Is the computer running a service? N for Nginx, A for Apache, F for FTP, S, for MySQL, or X for no services running/service not listed:" answer
 
 case "$answer" in
-    [nN] | [nN][gG][iI][nN][xX} )
+    [nN] | [nN][gG][iI][nN][xX] )
         echo "Securing nginx!"
         touch nginxconfig.txt
         echo "(single quote is double quote) In /etc/nginx/nginx.conf, in the http block.
@@ -235,7 +232,6 @@ case "$answer" in
         ;;
         [fF] | [fF][tT][pP] )
         echo "Securing FTP!"
-        touch ftpconfg.txt
         echo "anonymous_enable=no"> ftpconfig.txt
         echo "chroot_local_user=yes" >> ftpconfig.txt
         read -p "Due to FTP config rules, you need to add the lines in ftpconfig.txt to /etc/vsftpd.conf"
@@ -255,12 +251,13 @@ case "$answer" in
         read -p "Please run mysqld --validate-config to make sure the config is ok."
         chown root:root /etc/mysql/my.cnf
         chmod 0644 /etc/mysql/my.cnf
-        systemctl restart mysqld
+        systemctl restart mysql
+        systemctl restart mariadb
         ;;
         [xX] | [nN][oO][nN][eE] )   
         echo "If a service is listed in the README, but is not addressed in the script, google it!"
     * )
         echo "Invalid response."
         ;;
-
+esac
 read -p "Some unauthorized services may be running on this machine, use stacer to find them. Chances are, they may be a service addressed in this script.
