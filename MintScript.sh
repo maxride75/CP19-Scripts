@@ -87,7 +87,7 @@ cd /home/$SUDO_USER
 groupmems -g sudo -l > machineadmins.txt
 sort -o admins.txt admins.txt
 sort -o machineadmins.txt  machineadmins.txt
-comm -3 machineadmins.txt admins.txt > maybebadadmins.txt
+diff --changed-group-format='%<' --unchanged-group-format='' machineadmins.txt admins.txt > maybebadadmins.txt
 cat maybebadadmins.txt
 echo "These are the maybe bad admins, make sure they are bad!"
 read -p "Press [Enter] to demote them!"
@@ -99,7 +99,7 @@ done
 awk -F: '$3 >= 1000 && $3 <= 65534 {print $1}' /etc/passwd > /home/$SUDO_USER/machineusers.txt
 sort -o users.txt users.txt
 sort -o machineusers.txt machineusers.txt
-comm -3 machineusers.txt users.txt > maybebadusers.txt
+diff --changed-group-format='%<' --unchanged-group-format='' machineusers.txt users.txt > maybebadusers.txt
 cat maybebadusers.txt
 echo "These are the maybe bad users, make sure they are bad!"
 read -p "Press [Enter] to delete them!"
