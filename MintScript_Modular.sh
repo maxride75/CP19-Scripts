@@ -159,7 +159,7 @@ check_and_manage_admins() {
             echo "Make sure to demote them for points!"
         fi
     else
-        echo "No suspect admins found."
+        echo "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
 }
 
@@ -194,6 +194,7 @@ check_and_manage_users() {
     else
         echo "No suspect users found."
     fi
+    echo "Any user with an ID of less than 1000 is hidden, make sure you check for those!"
 }
 
 manage_local_users_and_groups() {
@@ -296,7 +297,7 @@ configure_ssh() {
 
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a service? (N/A/F/M/X): " "N A F M X")"
+    choice="$(prompt_choice "Is the computer running a service? (Nginx/Apache/FTP/Mysql/X(none)): " "N A F M X")"
 
     case "${choice}" in
         N)
