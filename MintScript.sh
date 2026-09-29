@@ -80,7 +80,7 @@ Priority: 0
 Auth-Type: Additional
 Auth:
 required pam_faillock.so authsucc" > /usr/share/pam-configs/faillock_reset
-read -p "PAM modules have been created, please enable them with pam-auth-update."
+read -p "PAM modules have been created, please enable them with pam-auth-update. "
 
 #Users/Groups
 cd /home/$SUDO_USER
@@ -90,11 +90,22 @@ sort -o machineadmins.txt  machineadmins.txt
 diff --changed-group-format='%<' --unchanged-group-format='' machineadmins.txt admins.txt > maybebadadmins.txt
 cat maybebadadmins.txt
 echo "These are the maybe bad admins, make sure they are bad!"
-read -p "Press [Enter] to demote them!"
-for admin in $(cat maybebadadmins.txt); do
-    echo "Demoting user: $admin"
-    deluser "$admin" sudo
-done
+read -p "Would you like to demote them? (y/n): " answer
+case "$answer" in
+    [yY] | [yY][eE][sS] )
+        for admin in $(cat maybebadadmins.txt); do
+            echo "Demoting user: $admin"
+            deluser "$admin" sudo
+        done
+        ;;
+    [nN] | [nN][oO] )
+        read -p "Make sure to demote them for points!"
+    
+        ;;
+    * )
+        echo "Invalid response."
+        ;;
+esac
 
 awk -F: '$3 >= 1000 && $3 <= 65534 {print $1}' /etc/passwd > /home/$SUDO_USER/machineusers.txt
 sort -o users.txt users.txt
@@ -102,14 +113,37 @@ sort -o machineusers.txt machineusers.txt
 diff --changed-group-format='%<' --unchanged-group-format='' machineusers.txt users.txt > maybebadusers.txt
 cat maybebadusers.txt
 echo "These are the maybe bad users, make sure they are bad!"
-read -p "Press [Enter] to delete them!"
+read -p "Would you like to delete them? (y/n):" answer
+
+case "$answer" in
+    [yY] | [yY][eE][sS] )
+        for user in $(cat maybebadusers.txt); do
+            echo "Removing user: $user"
+            userdel -r "$user"
+        done
+        ;;
+    [nN] | [nN][oO] )
+        read -p "Make sure to delete them for points!"
+    
+        ;;
+    * )
+        echo "Invalid response."
+        ;;
+esac
+
+
 for user in $(cat maybebadusers.txt); do
     echo "Removing user: $user"
     userdel -r "$user"
 done
-
+for admin in $(cat admins.txt); do
+    if [[ $user != $SUDO_USER ]]; then
+    echo "$user:Cyb3rP@tr1otHakz" > usrpass.txt   
+    fi
+done
+chpasswd < usrpass.txt
 read -p "Does the README need extra user management?
-This is the prompt in which you need to type G for Group, U for User, or N for no management" answer
+This is the prompt in which you need to type G for Group, U for User, or N for no management. (G/U/N): " answer
 
 case "$answer" in
         [gG] | [gG][rR][oO][uU][pP]  )
