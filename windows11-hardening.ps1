@@ -145,7 +145,7 @@ try {
     # Password policy - require complex passwords
     net accounts /maxpwdage:90 | Out-Null
     net accounts /minpwdlen:14 | Out-Null
-    net accounts /minpwdage:1 | Out-Null
+    net accounts /minpwdage:5 | Out-Null
     Write-Log "Password policy configured (14+ chars, expire every 90 days)" "SUCCESS"
     
     # Account lockout policy
@@ -212,26 +212,6 @@ try {
     }
 } catch {
     Write-Log "Error checking Secure Boot/TPM: $_" "WARN"
-}
-
-# ============================================================================
-# 9. BITLOCKER CONFIGURATION
-# ============================================================================
-Write-Log "Configuring BitLocker..." "INFO"
-
-try {
-    # Check if BitLocker-capable drive exists
-    $bitLockerVolume = Get-BitLockerVolume -ErrorAction SilentlyContinue | Where-Object { $_.VolumeType -eq "OperatingSystem" }
-    
-    if ($bitLockerVolume) {
-        if ($bitLockerVolume.ProtectionStatus -eq "Off") {
-            Write-Log "BitLocker not enabled on OS drive - ensure TPM and Secure Boot are enabled, then enable BitLocker manually" "WARN"
-        } else {
-            Write-Log "BitLocker protection status: $($bitLockerVolume.ProtectionStatus)" "SUCCESS"
-        }
-    }
-} catch {
-    Write-Log "BitLocker not available or error occurred: $_" "WARN"
 }
 
 # ============================================================================
