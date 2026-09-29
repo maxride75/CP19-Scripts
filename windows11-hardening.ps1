@@ -194,27 +194,6 @@ try {
 }
 
 # ============================================================================
-# 8. ENABLE SECURE BOOT AND TPM
-# ============================================================================
-Write-Log "Checking Secure Boot and TPM status..." "INFO"
-
-try {
-    $secureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
-    if ($secureBoot) {
-        Write-Log "Secure Boot is enabled" "SUCCESS"
-    } else {
-        Write-Log "Secure Boot is not enabled - enable in BIOS/UEFI" "WARN"
-    }
-    
-    $tpm = Get-WmiObject -Class Win32_Tpm -Namespace root\cimv2\security\microsofttpm -ErrorAction SilentlyContinue
-    if ($tpm) {
-        Write-Log "TPM 2.0 is present and active" "SUCCESS"
-    }
-} catch {
-    Write-Log "Error checking Secure Boot/TPM: $_" "WARN"
-}
-
-# ============================================================================
 # 10. DISABLE UNNECESSARY FEATURES
 # ============================================================================
 Write-Log "Disabling unnecessary Windows features..." "INFO"
@@ -305,14 +284,11 @@ Write-Log "Windows 11 hardening completed!" "SUCCESS"
 Write-Log "========================================" "INFO"
 Write-Log "Log file saved to: $logFile" "INFO"
 Write-Log "Please review the following recommendations:" "INFO"
-Write-Log "1. Enable BitLocker encryption for all drives" "INFO"
-Write-Log "2. Verify Secure Boot is enabled in BIOS/UEFI" "INFO"
-Write-Log "3. Verify TPM 2.0 is present and enabled" "INFO"
-Write-Log "4. Install latest Windows updates" "INFO"
-Write-Log "5. Configure Windows Backup" "INFO"
-Write-Log "6. Review and adjust privacy settings per organizational policy" "INFO"
-Write-Log "7. Implement endpoint protection solutions" "INFO"
-Write-Log "8. Configure Group Policy if on Domain" "INFO"
+Write-Log "1. Install latest Windows updates" "INFO"
+Write-Log "2. Configure Windows Backup" "INFO"
+Write-Log "3. Review and adjust privacy settings per organizational policy" "INFO"
+Write-Log "4. Implement endpoint protection solutions" "INFO"
+Write-Log "5. Configure Group Policy if on Domain" "INFO"
 
 Write-Host ""
 Write-Host "Hardening script completed. Review the log file for details." -ForegroundColor Green
