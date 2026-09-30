@@ -8,6 +8,70 @@ readonly LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || echo root)}"
 HOME_DIR="/home/${TARGET_USER}"
 
+NON_INTERACTIVE=0
+AUTO_MODE=""
+
+usage() {
+    cat <<'EOF'
+Usage: MintScript_Modular.sh [options]
+
+Options:
+  -m, --mode MODE       Choose a mode: full, packages, users, pam, ssh, web, all, exit
+  -y, --yes, --non-interactive
+                        Run without the interactive menu, summary, or confirmation prompt
+  -h, --help            Show this help message
+
+Examples:
+  sudo ./MintScript_Modular.sh --non-interactive --mode full
+  sudo ./MintScript_Modular.sh --mode ssh --yes
+EOF
+}
+
+parse_args() {
+    while (($#)); do
+        case "$1" in
+            -m|--mode)
+                [[ $# -ge 2 ]] || { echo "Error: --mode requires a value." >&2; usage; exit 1; }
+                AUTO_MODE="$2"
+                shift 2
+                ;;
+            -y|--yes|--non-interactive)
+                NON_INTERACTIVE=1
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            full|packages|users|pam|ssh|web|all|exit)
+                if [[ -z "${AUTO_MODE}" ]]; then
+                    AUTO_MODE="$1"
+                else
+                    echo "Error: multiple modes specified." >&2
+                    usage
+                    exit 1
+                fi
+                shift
+                ;;
+            *)
+                echo "Error: unknown argument: $1" >&2
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
+    case "${AUTO_MODE:-}" in
+        ""|full|packages|users|pam|ssh|web|all|exit)
+            ;;
+        *)
+            echo "Error: invalid mode '${AUTO_MODE}'." >&2
+            usage
+            exit 1
+            ;;
+    esac
+}
+
 log() {
     printf '%s %s\n' "$(date '+%F %T')" "$*" | tee -a "${LOG_FILE}" >&2
 }
@@ -124,13 +188,13 @@ choose_hardening_mode() {
 
 show_mode_summary() {
     local mode="$1"
-    
+
     echo ""
     echo "╔════════════════════════════════════════════════════════════╗"
     echo "║           SECURITY HARDENING EXECUTION SUMMARY            ║"
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
-    
+
     case "${mode}" in
         full|all)
             echo "Mode: FULL HARDENING (All phases)"
@@ -204,7 +268,7 @@ show_mode_summary() {
             echo "Mode: UNKNOWN"
             ;;
     esac
-    
+
     echo ""
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
@@ -212,7 +276,7 @@ show_mode_summary() {
 
 confirm_execution() {
     local mode="$1"
-    
+
     if ! prompt_yes_no "Do you want to proceed with ${mode} mode?"; then
         echo "Execution cancelled."
         exit 0
@@ -607,6 +671,7 @@ run_web_tasks() {
 }
 
 main() {
+    parse_args "$@"
     require_root
 
     mkdir -p "${LOG_FILE%/*}"
@@ -616,17 +681,18 @@ main() {
     echo "Security hardening script starting..."
 
     local selected_mode
-    selected_mode="$(choose_hardening_mode)" || {
-        echo "No valid mode selected. Exiting."
-        exit 1
-    }
-
-    # Show summary before executing
-    show_mode_summary "${selected_mode}"
-
-    # Confirm execution unless exiting
-    if [[ "${selected_mode}" != "exit" ]]; then
-        confirm_execution "${selected_mode}"
+    if [[ "${NON_INTERACTIVE}" -eq 1 ]]; then
+        selected_mode="${AUTO_MODE:-full}"
+        echo "Non-interactive mode enabled. Selected mode: ${selected_mode}"
+    else
+        selected_mode="$(choose_hardening_mode)" || {
+            echo "No valid mode selected. Exiting."
+            exit 1
+        }
+        show_mode_summary "${selected_mode}"
+        if [[ "${selected_mode}" != "exit" ]]; then
+            confirm_execution "${selected_mode}"
+        fi
     fi
 
     case "${selected_mode}" in
