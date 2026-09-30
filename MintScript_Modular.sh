@@ -94,17 +94,21 @@ choose_hardening_mode() {
         return 0
     fi
 
+    echo "========================================"
     echo "Select the hardening task to run:"
+    echo "========================================"
     echo "1) Full hardening"
     echo "2) Package updates + tool installs"
     echo "3) User/admin review"
     echo "4) PAM + password policy"
     echo "5) SSH hardening"
     echo "6) Web service hardening"
-    echo "7) Exit"
+    echo "7) All phases (same as option 1)"
+    echo "8) Exit"
+    echo "========================================"
 
     local choice
-    read -r -p "Choice [1-7]: " choice || choice="7"
+    read -r -p "Choice [1-8]: " choice || choice="8"
     case "${choice}" in
         1|full|FULL) printf '%s\n' "full" ;;
         2|packages|PACKAGE) printf '%s\n' "packages" ;;
@@ -112,9 +116,107 @@ choose_hardening_mode() {
         4|pam|PAM) printf '%s\n' "pam" ;;
         5|ssh|SSH) printf '%s\n' "ssh" ;;
         6|web|WEB) printf '%s\n' "web" ;;
-        7|exit|EXIT) printf '%s\n' "exit" ;;
+        7|all|ALL) printf '%s\n' "all" ;;
+        8|exit|EXIT) printf '%s\n' "exit" ;;
         *) printf '%s\n' "exit" ;;
     esac
+}
+
+show_mode_summary() {
+    local mode="$1"
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║           SECURITY HARDENING EXECUTION SUMMARY            ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    case "${mode}" in
+        full|all)
+            echo "Mode: FULL HARDENING (All phases)"
+            echo ""
+            echo "This will perform:"
+            echo "  ✓ Package updates and installation"
+            echo "  ✓ Firewall configuration"
+            echo "  ✓ Root account lockdown"
+            echo "  ✓ PAM and password policy configuration"
+            echo "  ✓ Admin account review and management"
+            echo "  ✓ User account review and management"
+            echo "  ✓ Group management"
+            echo "  ✓ Login definitions configuration"
+            echo "  ✓ SSH hardening"
+            echo "  ✓ Web service hardening (nginx/apache/ftp/mysql)"
+            echo "  ✓ Final system checks"
+            ;;
+        packages)
+            echo "Mode: PACKAGE MANAGEMENT"
+            echo ""
+            echo "This will perform:"
+            echo "  ✓ Update system packages"
+            echo "  ✓ Install required tools (ufw, stacer, libpam-pwquality)"
+            echo "  ✓ Enable UFW firewall"
+            echo "  ✓ Lock root account"
+            ;;
+        users)
+            echo "Mode: USER AND ADMIN MANAGEMENT"
+            echo ""
+            echo "This will perform:"
+            echo "  ✓ Review and manage admin accounts"
+            echo "  ✓ Review and manage user accounts"
+            echo "  ✓ Create custom groups if needed"
+            echo "  ✓ Create custom users if needed"
+            ;;
+        pam)
+            echo "Mode: PAM AND PASSWORD POLICY"
+            echo ""
+            echo "This will perform:"
+            echo "  ✓ Configure PAM faillock modules"
+            echo "  ✓ Set password expiration policies"
+            echo "  ✓ Configure sysctl security settings"
+            echo "  ✓ Adjust user password age limits"
+            ;;
+        ssh)
+            echo "Mode: SSH HARDENING"
+            echo ""
+            echo "This will perform:"
+            echo "  ✓ Disable root login via SSH"
+            echo "  ✓ Ensure PAM is enabled"
+            echo "  ✓ Disable empty password authentication"
+            echo "  ✓ Disable forwarding"
+            echo "  ✓ Set maximum authentication attempts to 6"
+            echo "  ✓ Reload SSH service"
+            ;;
+        web)
+            echo "Mode: WEB SERVICE HARDENING"
+            echo ""
+            echo "This will perform:"
+            echo "  ✓ Configure nginx security headers"
+            echo "  ✓ Configure Apache security settings"
+            echo "  ✓ Configure FTP restrictions"
+            echo "  ✓ Configure MySQL/MariaDB security"
+            ;;
+        exit)
+            echo "Mode: EXIT"
+            echo ""
+            echo "No changes will be made."
+            ;;
+        *)
+            echo "Mode: UNKNOWN"
+            ;;
+    esac
+    
+    echo ""
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+}
+
+confirm_execution() {
+    local mode="$1"
+    
+    if ! prompt_yes_no "Do you want to proceed with ${mode} mode?"; then
+        echo "Execution cancelled."
+        exit 0
+    fi
 }
 
 ensure_file_exists() {
@@ -518,6 +620,14 @@ main() {
         echo "No valid mode selected. Exiting."
         exit 1
     }
+
+    # Show summary before executing
+    show_mode_summary "${selected_mode}"
+
+    # Confirm execution unless exiting
+    if [[ "${selected_mode}" != "exit" ]]; then
+        confirm_execution "${selected_mode}"
+    fi
 
     case "${selected_mode}" in
         full|all)
