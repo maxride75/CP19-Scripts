@@ -32,6 +32,134 @@ function Write-Log {
 Write-Log "Starting Windows 11 hardening..." "INFO"
 
 # ============================================================================
+# 0. USER AND ADMIN MANAGEMENT
+# ============================================================================
+Write-Log "Configuring user and admin management..." "INFO"
+
+# Define paths for user and admin files (same directory as script)
+$scriptDir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+$usersFile = Join-Path -Path $scriptDir -ChildPath "users.txt"
+$adminsFile = Join-Path -Path $scriptDir -ChildPath "admins.txt"
+
+# Function to load users from file
+function Load-UserList {
+    param([string]$FilePath)
+    $users = @()
+    if (Test-Path $FilePath) {
+        $users = Get-Content -Path $FilePath | Where-Object { $_ -match '\S' } | ForEach-Object { $_.Trim() }
+    } else {
+        Write-Log "Warning: File not found: $FilePath" "WARN"
+    }
+    return $users
+}
+
+# Load allowed users and admins
+$allowedUsers = Load-UserList -FilePath $usersFile
+$allowedAdmins = Load-UserList -FilePath $adminsFile
+
+Write-Log "Loaded $($allowedUsers.Count) allowed users" "INFO"
+Write-Log "Loaded $($allowedAdmins.Count) allowed admins" "INFO"
+
+# Get all local users
+$localUsers = Get-LocalUser -ErrorAction SilentlyContinue
+
+try {
+    # First, add/update admin group members
+    if ($allowedAdmins.Count -gt 0) {
+        foreach ($admin in $allowedAdmins) {
+            try {
+                $adminExists = Get-LocalUser -Name $admin -ErrorAction SilentlyContinue
+                if ($adminExists) {
+                    # Add user to Administrators group if not already member
+                    $adminGroup = [ADSI]"WinNT://./Administrators"
+                    $adminGroupMembers = @($adminGroup.psbase.Invoke("Members")) | ForEach-Object { $_.GetType().InvokeMember("Name", 'GetProperty', $null, $_, $null) }
+                    
+                    if ($adminGroupMembers -notcontains $admin) {
+                        $adminGroup.Add("WinNT://./$admin")
+                        Write-Log "User added to Administrators group: $admin" "SUCCESS"
+                    } else {
+                        Write-Log "User already in Administrators group: $admin" "INFO"
+                    }
+                    
+                    # Ensure user is enabled
+                    if ($adminExists.Enabled -eq $false) {
+                        Enable-LocalUser -Name $admin -ErrorAction SilentlyContinue
+                        Write-Log "Admin account enabled: $admin" "SUCCESS"
+                    }
+                } else {
+                    Write-Log "Admin user not found on system: $admin" "WARN"
+                }
+            } catch {
+                Write-Log "Error processing admin user $admin : $_" "WARN"
+            }
+        }
+    }
+    
+    # Process standard users (remove from admin, enable if in allowed list)
+    if ($allowedUsers.Count -gt 0) {
+        foreach ($user in $allowedUsers) {
+            try {
+                $userExists = Get-LocalUser -Name $user -ErrorAction SilentlyContinue
+                if ($userExists) {
+                    # Ensure user is enabled
+                    if ($userExists.Enabled -eq $false) {
+                        Enable-LocalUser -Name $user -ErrorAction SilentlyContinue
+                        Write-Log "Standard user account enabled: $user" "SUCCESS"
+                    }
+                    
+                    # Remove from Administrators group if present
+                    $adminGroup = [ADSI]"WinNT://./Administrators"
+                    $adminGroupMembers = @($adminGroup.psbase.Invoke("Members")) | ForEach-Object { $_.GetType().InvokeMember("Name", 'GetProperty', $null, $_, $null) }
+                    
+                    if ($allowedAdmins -notcontains $user -and $adminGroupMembers -contains $user) {
+                        $adminGroup.Remove("WinNT://./$user")
+                        Write-Log "User removed from Administrators group: $user" "SUCCESS"
+                    }
+                } else {
+                    Write-Log "Standard user not found on system: $user" "WARN"
+                }
+            } catch {
+                Write-Log "Error processing standard user $user : $_" "WARN"
+            }
+        }
+    }
+    
+    # Disable/remove unauthorized users (not in allowed users or admins list)
+    $combinedAllowedUsers = $allowedUsers + $allowedAdmins | Select-Object -Unique
+    foreach ($localUser in $localUsers) {
+        try {
+            # Skip system accounts (Guest, DefaultAccount, and accounts starting with $)
+            if ($localUser.Name -match '^(\$|Guest|DefaultAccount)') {
+                continue
+            }
+            
+            if ($combinedAllowedUsers -notcontains $localUser.Name) {
+                # Disable unauthorized accounts
+                if ($localUser.Enabled -eq $true) {
+                    Disable-LocalUser -Name $localUser.Name -ErrorAction SilentlyContinue
+                    Write-Log "Unauthorized user account disabled: $($localUser.Name)" "SUCCESS"
+                }
+                
+                # Remove from Administrators group if member
+                $adminGroup = [ADSI]"WinNT://./Administrators"
+                $adminGroupMembers = @($adminGroup.psbase.Invoke("Members")) | ForEach-Object { $_.GetType().InvokeMember("Name", 'GetProperty', $null, $_, $null) }
+                
+                if ($adminGroupMembers -contains $localUser.Name) {
+                    $adminGroup.Remove("WinNT://./$(($localUser.Name))")
+                    Write-Log "Unauthorized user removed from Administrators group: $($localUser.Name)" "SUCCESS"
+                }
+            }
+        } catch {
+            Write-Log "Error processing unauthorized user $($localUser.Name) : $_" "WARN"
+        }
+    }
+    
+    Write-Log "User and admin management completed" "SUCCESS"
+} catch {
+    Write-Log "Error configuring user and admin management: $_" "ERROR"
+}
+
+# ============================================================================
 # 1. WINDOWS DEFENDER AND ANTIMALWARE SETTINGS
 # ============================================================================
 Write-Log "Configuring Windows Defender settings..." "INFO"
