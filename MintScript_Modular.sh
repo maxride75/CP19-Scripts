@@ -63,6 +63,60 @@ prompt_choice() {
     done
 }
 
+choose_hardening_mode() {
+    if command -v whiptail >/dev/null 2>&1; then
+        local choice
+        choice="$(whiptail --title "Mint Security Hardening" --menu "Select a task to run:" 18 78 10 \
+            "full" "Run the complete hardening workflow" \
+            "packages" "Update packages and install required software" \
+            "users" "Review admin and user accounts" \
+            "pam" "Configure PAM and password policy" \
+            "ssh" "Secure SSH" \
+            "web" "Secure web/FTP/MySQL services" \
+            "all" "Run all phases in order" \
+            "exit" "Exit without changing anything" 3>&1 1>&2 2>&3)" || return 1
+        printf '%s\n' "${choice:-exit}"
+        return 0
+    fi
+
+    if command -v dialog >/dev/null 2>&1; then
+        local choice
+        choice="$(dialog --clear --title "Mint Security Hardening" --menu "Select a task to run:" 18 78 10 \
+            "full" "Run the complete hardening workflow" \
+            "packages" "Update packages and install required software" \
+            "users" "Review admin and user accounts" \
+            "pam" "Configure PAM and password policy" \
+            "ssh" "Secure SSH" \
+            "web" "Secure web/FTP/MySQL services" \
+            "all" "Run all phases in order" \
+            "exit" "Exit without changing anything" 2>&1 >/dev/tty)" || return 1
+        printf '%s\n' "${choice:-exit}"
+        return 0
+    fi
+
+    echo "Select the hardening task to run:"
+    echo "1) Full hardening"
+    echo "2) Package updates + tool installs"
+    echo "3) User/admin review"
+    echo "4) PAM + password policy"
+    echo "5) SSH hardening"
+    echo "6) Web service hardening"
+    echo "7) Exit"
+
+    local choice
+    read -r -p "Choice [1-7]: " choice || choice="7"
+    case "${choice}" in
+        1|full|FULL) printf '%s\n' "full" ;;
+        2|packages|PACKAGE) printf '%s\n' "packages" ;;
+        3|users|USER) printf '%s\n' "users" ;;
+        4|pam|PAM) printf '%s\n' "pam" ;;
+        5|ssh|SSH) printf '%s\n' "ssh" ;;
+        6|web|WEB) printf '%s\n' "web" ;;
+        7|exit|EXIT) printf '%s\n' "exit" ;;
+        *) printf '%s\n' "exit" ;;
+    esac
+}
+
 ensure_file_exists() {
     local path="$1"
     if [[ ! -f "${path}" ]]; then
@@ -382,15 +436,7 @@ final_checks() {
     echo "Review the system for any services not covered by this script."
 }
 
-main() {
-    require_root
-
-    mkdir -p "${LOG_FILE%/*}"
-    touch "${LOG_FILE}"
-
-    echo "Success: Running with root privileges."
-    echo "Security hardening script starting..."
-
+run_full_hardening() {
     if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
         echo "Proceeding..."
     else
@@ -422,6 +468,85 @@ main() {
     final_checks
 
     echo "Hardening script complete. Review all changes manually before deployment."
+}
+
+run_package_tasks() {
+    if prompt_yes_no "Does the README specify not to update packages?"; then
+        echo "Update manually as required by the README."
+    else
+        echo "Proceeding with package updates..."
+        apt update -y >/dev/null
+        apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
+        apt upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+    fi
+
+    install_packages
+    configure_firewall
+    passwd -l root || warn "Failed to lock root account."
+}
+
+run_user_tasks() {
+    check_and_manage_admins
+    check_and_manage_users
+    manage_local_users_and_groups
+}
+
+run_pam_tasks() {
+    configure_pam
+    configure_login_defs
+}
+
+run_ssh_tasks() {
+    configure_ssh
+}
+
+run_web_tasks() {
+    configure_web_services
+}
+
+main() {
+    require_root
+
+    mkdir -p "${LOG_FILE%/*}"
+    touch "${LOG_FILE}"
+
+    echo "Success: Running with root privileges."
+    echo "Security hardening script starting..."
+
+    local selected_mode
+    selected_mode="$(choose_hardening_mode)" || {
+        echo "No valid mode selected. Exiting."
+        exit 1
+    }
+
+    case "${selected_mode}" in
+        full|all)
+            run_full_hardening
+            ;;
+        packages)
+            run_package_tasks
+            ;;
+        users)
+            run_user_tasks
+            ;;
+        pam)
+            run_pam_tasks
+            ;;
+        ssh)
+            run_ssh_tasks
+            ;;
+        web)
+            run_web_tasks
+            ;;
+        exit)
+            echo "Exiting without running any hardening steps."
+            exit 0
+            ;;
+        *)
+            echo "Invalid selection. Exiting."
+            exit 1
+            ;;
+    esac
 }
 
 main "$@"
