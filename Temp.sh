@@ -11,17 +11,18 @@ echo "~~~~~~~~~~~~~~~~Written by: Ethan Fowler Team-ByTE~~~~~~~~~~~~~~~~~~~~~~~~
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo " "
 echo "1) Update the machine.			2) Install required packages."
-echo "3) Lock the root account.			4) configure the firewall."
-echo "5) Delete unauthorized users.		6) Create any new users."
-echo "7) Demote unathorized admins		8) Change all the admin passwords.."
-echo "9) Add a new group.			10) List all cronjobs."
+echo "3) Lock the root account.			4) Configure the firewall."
+echo "5) Demote unathorized admins		6) Delete unauthorized users."
+echo "7) Add users/groups				8) Change all the admin passwords.."
+echo "9) N/a			 				10) All users get passwords"
 echo "11) Set the password policy.		12) Set the lockout policy."
 echo "13) Configure password age		14) Configure SSH."
-echo "15) Configure any web services			16) Repermission files"
-echo "17) List all running processes.		18) Remove NetCat."
-echo "19) Reboot the machine.			20) Secure the root account"
-echo "21) Final checks				22)Disable ctrl-alt-del"
-echo "23) Disable Virtual Terminals		24)Exit"
+echo "15) Configure any web services	16) Repermission important files"
+echo "17) Port scan	to a file			18) Find and remove prohibited files"
+echo "19) Reboot the machine.			20)Uninstall all unauthorized packages"
+echo "21) Final checks				    22)Disable sysrq"
+echo "23) Misc machine security configs		24)Exit"
+echo "25) Forensics Questions Help		26) RUN EVERYTHING!"
 	
 	;;
 	esac
@@ -29,38 +30,37 @@ echo "23) Disable Virtual Terminals		24)Exit"
 }
 
 read_options(){
-	case $opsys in
-	"Ubuntu"|"Debain")
-		local choice
-		read -p "Pease select item you wish to do: " choice
+	
+	read -p "Pease select item you wish to do: " choice
 
 		case $choice in
 			1) update;;
-			2) autoUpdate;;
-			3) pFiles;;
-			4) configureFirewall;;
-			5) loginConf;;
-			6) createUser;;
-			7) chgPasswd;;
-			8) delUser;;
-			9) admin;;
-			10) cron;;
+			2) install_packages;;
+			3) rootlock;;
+			4) configure_firewall;;
+			5) check_and_manage_admins;;
+			6) check_and_manage_users;;
+			7) manage_local_users_and_groups;;
+			8) adminpwd;;
+			9) userpwd;;
+			10) configure_pam;;
 			11) passPol;;
 			12) lockoutPol;;
 			13) hakTools;;
-			14) sshd;;
-			15) sys;;
-			16) sudoers;;
-			17) proc;;
-			18) nc;;
+			14) configure_ssh;;
+			15) configure_web_services;;
+			16) reperm_files;;
+			17) nmap;;
+			18) prohibited_files;;
 	 		19) reboot;;
-			20) secRoot;;
-			21) cat postScript; pause;;
-			22) CAD;;
-			23)VirtualCon;;
-			24) exit20;;
-			69)runFull;;
-			*) echo "Sorry that is not an option please select another one..."
+			20) prohibited_pkgs;;
+			21) final_checks;;
+			22) sysrq;;
+			23) misc_configs;;
+			24) exit 1
+			25) forensics;;
+			26)runFull;;
+			*) echo "Invalid Option."
 			;;
 		esac
 	;;
