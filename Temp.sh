@@ -21,7 +21,7 @@ echo "15) Configure any web services	16) Repermission important files"
 echo "17) Port scan	to a file			18) Find and remove prohibited files"
 echo "19) Reboot the machine.			20)Uninstall all unauthorized packages"
 echo "21) Final checks				    22)Disable sysrq"
-echo "23) Misc machine security configs		24)Exit"
+echo "23) Misc machine security configs	24)Exit"
 echo "25) Forensics Questions Help		26) RUN EVERYTHING!"
 	
 	;;
@@ -42,10 +42,10 @@ read_options(){
 			6) check_and_manage_users;;
 			7) manage_local_users_and_groups;;
 			8) adminpwd;;
-			9) userpwd;;
-			10) configure_pam;;
-			11) passPol;;
-			12) lockoutPol;;
+			9) exit 0;;
+			10) userpwd;;
+			11) pwdpol;;
+			12) configure_pam;;
 			13) hakTools;;
 			14) configure_ssh;;
 			15) configure_web_services;;
@@ -59,7 +59,7 @@ read_options(){
 			23) misc_configs;;
 			24) exit 1
 			25) forensics;;
-			26)runFull;;
+			26) runFull;;
 			*) echo "Invalid Option."
 			;;
 		esac
