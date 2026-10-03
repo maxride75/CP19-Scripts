@@ -93,7 +93,7 @@ write_pam_file() {
 install_packages() {
     log "Installing required packages..."
     apt update -y >/dev/null
-    apt install -y ufw stacer pwgen libpam-pwquality >/dev/null
+    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon nmap >/dev/null || warn "Packages were not installed successfully!"
 }
 
 configure_firewall() {
@@ -401,12 +401,17 @@ EOF
 unauth_files() {
     locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
     ls /usr/games > unauthfiles.txt
+    freshclam
+    clamscan -r -i / & > virus.txt
+    echo "Virus scan is currently running and will output to virus.txt."
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
 
 final_checks() {
     echo "Some unauthorized services may be running. Use stacer to review processes."
     echo "Review the system for any services not covered by this script."
+    echo "Make sure to take a look at virus.txt to see if there are any viruses."
+    echo "MAKE SURE TO TURN ON AUTOUPDATE!"
 }
 
 main() {
