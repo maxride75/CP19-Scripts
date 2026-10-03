@@ -93,7 +93,7 @@ write_pam_file() {
 install_packages() {
     log "Installing required packages..."
     apt update -y >/dev/null
-    apt install -y ufw stacer libpam-pwquality >/dev/null
+    apt install -y ufw stacer pwgen libpam-pwquality >/dev/null
 }
 
 configure_firewall() {
@@ -247,6 +247,22 @@ manage_local_users_and_groups() {
         esac
     done
 }
+adminpwd() {
+    for i in admins.txt; do
+        if [[i != $SUDOUSER ]]; then
+            echo "$i:$(pwgen -sy 20 1)" | chpasswd
+        fi
+    done
+
+    }
+
+userpwd() {
+    for i in users.txt; do
+        if [[i != $SUDOUSER ]]; then
+            echo "$i:$(pwgen -sy 20 1)" | chpasswd
+        fi
+    done
+}
 
 configure_login_defs() {
     log "Configuring login.defs password policy..."
@@ -296,6 +312,10 @@ configure_ssh() {
     systemctl reload ssh || warn "Failed to reload SSH service."
 }
 
+root_lock() {
+    passwd -l root || warn "Failed to lock root account."
+    }
+    
 configure_web_services() {
     local choice
     choice="$(prompt_choice "Is the computer running a service? (Nginx/Apache/FTP/Mysql/X(none)): " "N A F M X")"
@@ -382,6 +402,7 @@ unauth_files() {
     locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
     ls /usr/games > unauthfiles.txt
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
+}
 
 final_checks() {
     echo "Some unauthorized services may be running. Use stacer to review processes."
@@ -416,7 +437,7 @@ main() {
 
     install_packages
     configure_firewall
-    passwd -l root || warn "Failed to lock root account."
+    root_lock
 
     configure_pam
     check_and_manage_admins
