@@ -194,6 +194,7 @@ check_and_manage_users() {
     else
         echo "No suspect users found."
     fi
+    #awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > hiddenuser.txt
     echo "Any user with an ID of less than 1000 is hidden, make sure you check for those!"
 }
 
@@ -376,6 +377,11 @@ EOF
             ;;
     esac
 }
+
+unauth_files() {
+    locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
+    ls /usr/games > unauthfiles.txt
+    read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 
 final_checks() {
     echo "Some unauthorized services may be running. Use stacer to review processes."
