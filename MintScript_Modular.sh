@@ -90,6 +90,18 @@ write_pam_file() {
     printf '%s\n' "${content}" > "${path}"
 }
 
+update() {
+    if prompt_yes_no "Does the README specify not to update packages?"; then
+        echo "Update manually as required by the README."
+    else
+        echo "Proceeding with package updates..."
+        apt update -y >/dev/null
+        apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
+        apt upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+        echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
+    fi
+    read -p "Press [Enter} to continue... "
+}
 install_packages() {
     log "Installing required packages..."
     apt update -y >/dev/null
@@ -272,7 +284,9 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_MIN_DAYS" "20"
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     echo "/etc/login.defs updated successfully."
+}
 
+misc_sec() {
     echo "kernel.dmesg_restrict=1" | tee -a /etc/sysctl.d/6-dmesg-sudo.conf >/dev/null
 
     while IFS= read -r user; do
@@ -284,7 +298,6 @@ configure_login_defs() {
 
     echo "All other unhidden users' maximum password age was set to 60 days."
     read -r -p "Check for hidden users now and adjust them manually if needed. Press [Enter] to continue..." </dev/tty
-
     set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies" "1"
     set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space" "2"
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
@@ -314,8 +327,21 @@ configure_ssh() {
 
 root_lock() {
     passwd -l root || warn "Failed to lock root account."
-    }
-    
+}
+
+reperm_files() {
+    cd /etc
+    chown root:root sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg
+    chmod 440 /etc/sudoers
+    chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
+    chmod 644 passwd
+    cd /home/$SUDO_USER
+}
+
+easter_egg() {
+    curl ascii.live/rick
+}
+
 configure_web_services() {
     local choice
     choice="$(prompt_choice "Is the computer running a service? (Nginx/Apache/FTP/Mysql/X(none)): " "N A F M X")"
@@ -414,6 +440,32 @@ final_checks() {
     echo "MAKE SURE TO TURN ON AUTOUPDATE!"
 }
 
+run_it_all() {
+    prerequisites
+    forensics
+	update
+	install_packages
+    root_lock
+	configure_firewall
+	check_and_manage_admins
+	check_and_manage_users
+	manage_local_users_and_groups
+	adminpwd
+	userpwd
+	configure_pam
+	pwd_pol
+	configure_login_defs
+	configure_ssh
+	configure_web_services
+	sysrq
+	reperm_files
+	nmap
+	unauth_files
+	prohibited_pkgs
+	misc_sec
+	final_checks
+	reboot_machine
+	
 main() {
     require_root
 
@@ -430,30 +482,7 @@ main() {
         exit 1
     fi
 
-    if prompt_yes_no "Does the README specify not to update packages?"; then
-        echo "Update manually as required by the README."
-    else
-        echo "Proceeding with package updates..."
-        apt update -y >/dev/null
-        apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
-        apt upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
-        echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
-    fi
-
-    install_packages
-    configure_firewall
-    root_lock
-
-    configure_pam
-    check_and_manage_admins
-    check_and_manage_users
-    manage_local_users_and_groups
-    configure_login_defs
-    configure_ssh
-    configure_web_services
-    final_checks
-
-    echo "Hardening script complete. Review all changes manually before deployment."
+    
 }
 
 main "$@"
