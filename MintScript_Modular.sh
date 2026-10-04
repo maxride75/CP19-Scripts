@@ -203,11 +203,28 @@ check_and_manage_users() {
         else
             echo "Make sure to delete them for points!"
         fi
+
     else
         echo "No suspect users found."
     fi
-    #awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > hiddenuser.txt
-    echo "Any user with an ID of less than 1000 is hidden, make sure you check for those!"
+	
+	awk -F: '$3 == 0 {print $1}' /etc/passwd | grep -v root > uid0.txt
+	if [[ -f "uid0.txt" ]]: then
+		echo "USER WITH ROOT PERMS FOUND!!! DEMOTE IMMEDIATELY!!!"
+		cat uid0.txt
+		if prompt_yes_no "Would you like to change their UID (y/n): "; then
+			$BADUSER={cat uid0.txt}
+			killall -u $BADUSER
+			usermod -u 3024 $BADUSER
+			groupmod -g 3024 $BADUSER
+			fi
+	fi
+	
+	
+	echo "These users have a UID that is less than 1000, meaning they are hidden"
+    awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > hiddenuser.txt
+    echo "Make sure they are authorized, because the script does not scan for hidden users."
+	read -p "Press [Enter] to continue... "
 }
 
 manage_local_users_and_groups() {
@@ -335,13 +352,19 @@ reperm_files() {
     chmod 440 /etc/sudoers
     chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
     chmod 644 passwd
-    cd /home/$SUDO_USER
+    cd cd $HOMEDIR
 }
 
 easter_egg() {
     curl ascii.live/rick
 }
 
+nmap() {
+	nmap -sT -o $HOMEDIR/nmap.txt localhost
+	echo "This machine's ports have been scanned, ouput is in $HOMEDIR/nmap.txt"
+	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
+	read -p "Press [Enter] to continue... "
+}
 configure_web_services() {
     local choice
     choice="$(prompt_choice "Is the computer running a service? (Nginx/Apache/FTP/Mysql/X(none)): " "N A F M X")"
@@ -433,11 +456,21 @@ unauth_files() {
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
 
+reboot_machine() {
+	if prompt_yes_no "Would you like to reboot the machine to apply changes? 
+	Warning: This script will not keep running after reboot! (y/n): "; then
+		shutdown -r now
+	else
+		echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
+	fi
+}
+
 final_checks() {
     echo "Some unauthorized services may be running. Use stacer to review processes."
     echo "Review the system for any services not covered by this script."
     echo "Make sure to take a look at virus.txt to see if there are any viruses."
     echo "MAKE SURE TO TURN ON AUTOUPDATE!"
+	echo "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
 }
 
 run_it_all() {
