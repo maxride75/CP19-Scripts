@@ -50,7 +50,7 @@ read_options(){
 			14) configure_ssh;;
 			15) configure_web_services;;
 			16) sysrq;;
-			17) reperm;;
+			17) reperm_files;;
 			18) nmap;;
 	 		19) unauth_files;;
 			20) prohibited_pkgs;;
@@ -66,7 +66,7 @@ read_options(){
 	;;
 	}
 
-##This runs .the actual script
+##This runs the actual script
 while true
 do
 	clear
