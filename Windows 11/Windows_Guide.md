@@ -1,0 +1,1 @@
+This is the guide to which you run the Windows 11 Script. Create 2 text files in your home directory, called user.txt and admin.txt, and load them with the names of the authorized users and admins, respectively. Once that has been finished, run the script as administrator and the machine shall be hardened! **MAKE SURE TO CHECK THE CHECKLIST!!!**
