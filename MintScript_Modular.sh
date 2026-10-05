@@ -345,7 +345,8 @@ configure_ssh() {
 root_lock() {
     passwd -l root || warn "Failed to lock root account."
 }
-
+sysrq() {
+	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
 reperm_files() {
     cd /etc
     chown root:root sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg
