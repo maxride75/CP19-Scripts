@@ -92,12 +92,19 @@ write_pam_file() {
 
 forensics() {
 	if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
-        read -p "Press [Enter] to continue... "
-    else
+		echo "Nice job!"
+	else
         echo "Forensics help is in /home/$TARGETUSER/forensics.txt, but help can also be found by googling..."
 		echo "------FORENSICS HELP-------" > forensics.txt
+		echo "sha256sum _file_ for a SHA256 filehash" >> forensics.txt
+		echo "md5sum _file_ for a MD5 filehash" >> forensics.txt
+		echo "steghide extract -p _password_ _file_" >> forensics.txt
+		echo "locate '*.filetype' for finding music files" >> forensics.txt
+		echo "Crontab jobs are in /etc/crontab, which will have the actual location of the job." >> forensics.txt
+		echo "ss -tlnp or (once nmap is installed) nmap -sT localhost shows open ports, and then top -p _PID_ can be used to find and stop a task" >> forensics.txt
+		echo "Take a look at it if you need help!"
     fi
-
+    read -p "Press [Enter] to continue... "
     
 }
 
