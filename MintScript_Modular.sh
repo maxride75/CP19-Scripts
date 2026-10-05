@@ -227,7 +227,7 @@ check_and_manage_users() {
     fi
 	
 	awk -F: '$3 == 0 {print $1}' /etc/passwd | grep -v root > uid0.txt
-	if [[ -f "uid0.txt" ]]: then
+	if [[ -f "uid0.txt" ]]; then
 		echo "USER WITH ROOT PERMS FOUND!!! DEMOTE IMMEDIATELY!!!"
 		cat uid0.txt
 		if prompt_yes_no "Would you like to change their UID (y/n): "; then
