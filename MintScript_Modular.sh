@@ -94,7 +94,7 @@ forensics() {
 	if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
 		echo "Nice job!"
 	else
-        echo "Forensics help is in /home/$TARGETUSER/forensics.txt, but help can also be found by googling..."
+        echo "Forensics help is in /home/$TARGET_USER/forensics.txt, but help can also be found by googling..."
 		echo "------FORENSICS HELP-------" > forensics.txt
 		echo "sha256sum _file_ for a SHA256 filehash" >> forensics.txt
 		echo "md5sum _file_ for a MD5 filehash" >> forensics.txt
@@ -102,6 +102,9 @@ forensics() {
 		echo "locate '*.filetype' for finding music files" >> forensics.txt
 		echo "Crontab jobs are in /etc/crontab, which will have the actual location of the job." >> forensics.txt
 		echo "ss -tlnp or (once nmap is installed) nmap -sT localhost shows open ports, and then top -p _PID_ can be used to find and stop a task" >> forensics.txt
+		echo "For ciphers, use dcode.fr to solve them." >> forensics.txt
+		echo "To find a specific file as part of the question, use locate _file_ to find it." >> forensics.txt
+		echo "Use base64 -d to decode a base64-encrypted message." >> forensics.txt
 		echo "Take a look at it if you need help!"
     fi
     read -p "Press [Enter] to continue... "
@@ -231,7 +234,7 @@ check_and_manage_users() {
 		echo "USER WITH ROOT PERMS FOUND!!! DEMOTE IMMEDIATELY!!!"
 		cat uid0.txt
 		if prompt_yes_no "Would you like to change their UID (y/n): "; then
-			$BADUSER={cat uid0.txt}
+			BADUSER=$(cat uid0.txt)
 			killall -u $BADUSER
 			usermod -u 3024 $BADUSER
 			groupmod -g 3024 $BADUSER
@@ -296,7 +299,7 @@ manage_local_users_and_groups() {
 }
 adminpwd() {
     for i in admins.txt; do
-        if [[i != $SUDOUSER ]]; then
+        if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
     done
@@ -305,7 +308,7 @@ adminpwd() {
 
 userpwd() {
     for i in users.txt; do
-        if [[i != $SUDOUSER ]]; then
+        if [["$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
     done
@@ -365,6 +368,7 @@ root_lock() {
 }
 sysrq() {
 	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
+}
 reperm_files() {
     cd /etc
     chown root:root sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg
@@ -517,7 +521,7 @@ run_it_all() {
 	misc_sec
 	final_checks
 	reboot_machine
-	
+	}
 main() {
     require_root
 
