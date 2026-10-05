@@ -90,6 +90,17 @@ write_pam_file() {
     printf '%s\n' "${content}" > "${path}"
 }
 
+forensics() {
+	if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
+        read -p "Press [Enter] to continue... "
+    else
+        echo "Forensics help is in /home/$TARGETUSER/forensics.txt, but help can also be found by googling..."
+		echo "------FORENSICS HELP-------" > forensics.txt
+    fi
+
+    
+}
+
 update() {
     if prompt_yes_no "Does the README specify not to update packages?"; then
         echo "Update manually as required by the README."
