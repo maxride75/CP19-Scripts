@@ -298,7 +298,7 @@ manage_local_users_and_groups() {
     done
 }
 adminpwd() {
-    for i in admins.txt; do
+    for i in (cat admins.txt); do
         if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
@@ -307,8 +307,8 @@ adminpwd() {
     }
 
 userpwd() {
-    for i in users.txt; do
-        if [["$i" != "$TARGET_USER" ]]; then
+    for i in (cat users.txt); do
+        if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
     done
@@ -375,7 +375,7 @@ reperm_files() {
     chmod 440 /etc/sudoers
     chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
     chmod 644 passwd
-    cd cd $HOMEDIR
+    cd $HOMEDIR
 }
 
 easter_egg() {
@@ -493,6 +493,7 @@ unauth_files() {
 
 pwd_pol() {
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+}
 
 
 reboot_machine() {
@@ -537,7 +538,20 @@ run_it_all() {
 	misc_sec
 	final_checks
 	reboot_machine
-	}
+}
+
+main2() {
+	while true
+	do
+		clear
+		show_menu
+		read_options
+	done
+
+    
+}
+
+
 main() {
     require_root
 
@@ -574,10 +588,6 @@ echo "19) Find and remove any unauthorized files			20) Uninstall any unauthorize
 echo "21) Configure misc security settings				    22) Final checks"
 echo "23) Reboot											24) RUN IT ALL"
 echo "25) Secret Easter egg									26) Exit"
-	
-	;;
-	esac
-
 }
 
 read_options(){
@@ -608,7 +618,7 @@ read_options(){
 			21) misc_sec;;
 			22) final_checks;;
 			23) reboot_machine;;
-			24) run_it_all
+			24) run_it_all;;
 			25) easter_egg;;
 			26) exit 0;;
 			*) echo "Invalid Option."
@@ -617,16 +627,5 @@ read_options(){
 	;;
 	}
 
-##This runs the actual script
-main2() {
-	while true
-	do
-		clear
-		show_menu
-		read_options
-	done
-
-    
-}
 
 main "$@"
