@@ -98,7 +98,7 @@ forensics() {
 		echo "------FORENSICS HELP-------" > forensics.txt
 		echo "sha256sum _file_ for a SHA256 filehash" >> forensics.txt
 		echo "md5sum _file_ for a MD5 filehash" >> forensics.txt
-		echo "steghide extract -p _password_ _file_" >> forensics.txt
+		echo "steghide extract -p _password_ -sf _file_" >> forensics.txt
 		echo "locate '*.filetype' for finding music files" >> forensics.txt
 		echo "Crontab jobs are in /etc/crontab, which will have the actual location of the job." >> forensics.txt
 		echo "ss -tlnp or (once nmap is installed) nmap -sT localhost shows open ports, and then top -p _PID_ can be used to find and stop a task" >> forensics.txt
@@ -470,11 +470,23 @@ EOF
     esac
 }
 
+prohibited_pkgs() {
+	pkg=$("hollywood")
+	apt list --installed|grep -v '\<lib' > installed_pkgs.txt
+	echo "Removing John, Hydra, Transmission, Warpinator, Netcat"
+	apt purge john hydra transmission-gtk warpinator nc ncat 
+	while [[ $pkg != "none" ]]; do
+		read -p  "Current installed packages are in installed_pkgs.txt. If you need to uninstall something, type it in here. If you can't find a package but you know it is installed, google it." pkg
+		echo "Removing $pkg!"
+		apt purge $pkg
+	done
+}
+	
 unauth_files() {
     locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
     ls /usr/games > unauthfiles.txt
     freshclam
-    clamscan -r -i / & > virus.txt
+    clamscan -r -i -l virusscan.txt &
     echo "Virus scan is currently running and will output to virus.txt."
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
@@ -530,14 +542,6 @@ main() {
 
     echo "Success: Running with root privileges."
     echo "Security hardening script starting..."
-
-    if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
-        echo "Proceeding..."
-    else
-        echo "Please answer them first."
-        exit 1
-    fi
-
     
 }
 
