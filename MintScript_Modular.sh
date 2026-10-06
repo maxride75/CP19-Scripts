@@ -491,6 +491,10 @@ unauth_files() {
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
 
+pwd_pol() {
+	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+
+
 reboot_machine() {
 	if prompt_yes_no "Would you like to reboot the machine to apply changes? 
 	Warning: This script will not keep running after reboot! (y/n): "; then
