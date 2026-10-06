@@ -126,7 +126,7 @@ update() {
 install_packages() {
     log "Installing required packages..."
     apt update -y >/dev/null
-    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon nmap >/dev/null || warn "Packages were not installed successfully!"
+    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon nmap rtkithunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
 }
 
 configure_firewall() {
@@ -474,7 +474,7 @@ prohibited_pkgs() {
 	pkg=$("hollywood")
 	apt list --installed|grep -v '\<lib' > installed_pkgs.txt
 	echo "Removing John, Hydra, Transmission, Warpinator, Netcat"
-	apt purge john hydra transmission-gtk warpinator nc ncat 
+	apt purge john hydra transmission-gtk warpinator nc ncat ophcrack
 	while [[ $pkg != "none" ]]; do
 		read -p  "Current installed packages are in installed_pkgs.txt. If you need to uninstall something, type it in here. If you can't find a package but you know it is installed, google it." pkg
 		echo "Removing $pkg!"
