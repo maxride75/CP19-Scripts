@@ -90,6 +90,20 @@ write_pam_file() {
     printf '%s\n' "${content}" > "${path}"
 }
 
+prerequisites() {
+	echo "----------------------PREREQUISITES-------------------------"
+	echo "This script will fail if these are not done correctly!!!!"
+	echo "This part is step-by-step, and please press [Enter] after each step is done."
+	read -p "Launch Update Manager and make sure apt repos are set up correctly."
+	read -p "Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS!"
+	read -p "Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
+	read -p "If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
+	read -p "Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
+	user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
+	read -p "If you finished all of those, great! Press [Enter] to continue! "
+	}
+	
+
 forensics() {
 	if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
 		echo "Nice job!"
@@ -105,6 +119,8 @@ forensics() {
 		echo "For ciphers, use dcode.fr to solve them." >> forensics.txt
 		echo "To find a specific file as part of the question, use locate _file_ to find it." >> forensics.txt
 		echo "Use base64 -d to decode a base64-encrypted message." >> forensics.txt
+		echo "Sometimes Wireshark may be installed as part of a question. If the question asks for an IP, process of elimination usually helps, e.g. enter one IP, save the file,
+		and if you don't get points, try the other IP from the pcap file." >> forensics.txt
 		echo "Take a look at it if you need help!"
     fi
     read -p "Press [Enter] to continue... "
@@ -126,7 +142,7 @@ update() {
 install_packages() {
     log "Installing required packages..."
     apt update -y >/dev/null
-    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon nmap rtkithunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
+    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon nmap rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
 }
 
 configure_firewall() {
@@ -180,13 +196,13 @@ check_and_manage_admins() {
         "${HOME_DIR}/machineadmins.txt" "${HOME_DIR}/admins.txt" > "${HOME_DIR}/maybebadadmins.txt" || true
 
     if [[ -s "${HOME_DIR}/maybebadadmins.txt" ]]; then
-        echo "Potentially bad admins:"
+        echo "These are the potentially bad admins:"
         cat "${HOME_DIR}/maybebadadmins.txt"
         if prompt_yes_no "Would you like to demote the suspect admins?"; then
             while IFS= read -r admin; do
                 [[ -z "${admin}" ]] && continue
                 echo "Demoting user: ${admin}"
-                deluser "${admin}" sudo || warn "Failed to demote ${admin}"
+                deluser "${admin}" sudo adm || warn "Failed to demote ${admin}"
             done < "${HOME_DIR}/maybebadadmins.txt"
         else
             echo "Make sure to demote them for points!"
@@ -390,10 +406,10 @@ nmap() {
 }
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a service? (Nginx/Apache/FTP/Mysql/X(none)): " "N A F M X")"
+    choice="$(prompt_choice "Is the computer running a service? (nginX/Apache/FTP/Mysql/N)): " "X A F M N")"
 
     case "${choice}" in
-        N)
+        X)
             echo "Securing nginx!"
             cat > /tmp/nginxconfig.txt <<'EOF'
 (single quote is double quote) In /etc/nginx/nginx.conf, in the http block.
@@ -461,7 +477,7 @@ EOF
             systemctl restart mysql || true
             systemctl restart mariadb || true
             ;;
-        X)
+        N)
             echo "If a service is listed in the README but is not addressed here, research it manually."
             ;;
         *)
@@ -473,10 +489,12 @@ EOF
 prohibited_pkgs() {
 	pkg=$("hollywood")
 	apt list --installed|grep -v '\<lib' > installed_pkgs.txt
-	echo "Removing John, Hydra, Transmission, Warpinator, Netcat"
-	apt purge john hydra transmission-gtk warpinator nc ncat ophcrack
+	echo "Removing John, Hydra, Transmission, Warpinator,"
+	apt purge john hydra transmission-gtk warpinator ophcrack
 	while [[ $pkg != "none" ]]; do
-		read -p  "Current installed packages are in installed_pkgs.txt. If you need to uninstall something, type it in here. If you can't find a package but you know it is installed, google it." pkg
+		echo "Current installed packages are in installed_pkgs.txt. If you can't find a package but you know it is installed, google it.
+		Note: Please don't uninstall netcat until you are done with nmap because nmap requires netcat to function."
+		read -p  "If you need to uninstall something, type it in here. If you don't, type none. " pkg
 		echo "Removing $pkg!"
 		apt purge $pkg
 	done
@@ -495,6 +513,17 @@ pwd_pol() {
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
 }
 
+virus() {
+	freshclam
+    clamscan -r -i -l virusscan.txt &
+    echo "Virus scan is currently running and will output to virus.txt."
+	echo "Updating the rootkit hunter."
+	rkhunter --update
+	echo "Hunting for rootkits and other various malware!"
+	rkhunter -c 
+	echo "Checking for common privelege escalation vectors!"
+	unix-privesc-check standard
+	
 
 reboot_machine() {
 	if prompt_yes_no "Would you like to reboot the machine to apply changes? 
@@ -508,12 +537,12 @@ reboot_machine() {
 final_checks() {
     echo "Some unauthorized services may be running. Use stacer to review processes."
     echo "Review the system for any services not covered by this script."
-    echo "Make sure to take a look at virus.txt to see if there are any viruses."
+    echo "Make sure to take a look at virusscan.txt to see if there are any viruses."
     echo "MAKE SURE TO TURN ON AUTOUPDATE!"
 	echo "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
 }
 
-run_it_all() {
+kitchen_sink() {
     prerequisites
     forensics
 	update
@@ -536,32 +565,11 @@ run_it_all() {
 	unauth_files
 	prohibited_pkgs
 	misc_sec
+	virus
 	final_checks
 	reboot_machine
 }
 
-main2() {
-	while true
-	do
-		clear
-		show_menu
-		read_options
-	done
-
-    
-}
-
-
-main() {
-    require_root
-
-    mkdir -p "${LOG_FILE%/*}"
-    touch "${LOG_FILE}"
-
-    echo "Success: Running with root privileges."
-    echo "Security hardening script starting..."
-	main2
-}
 
 show_menu(){
 	
@@ -585,9 +593,10 @@ echo "13) Configure password age							14) Configure SSH."
 echo "15) Configure any web services						16) Disable sysrq"
 echo "17) Repermission any important files					18) Port scan the machine and send to a file"
 echo "19) Find and remove any unauthorized files			20) Uninstall any unauthorized packages"
-echo "21) Configure misc security settings				    22) Final checks"
-echo "23) Reboot											24) RUN IT ALL"
-echo "25) Secret Easter egg									26) Exit"
+echo "21) Configure security settings				    	22) Virus scan"
+echo "23) Final checks										24) Reboot"
+echo "25) Full harden										26) Secret Easter Egg"
+echo "27) Exit"
 }
 
 read_options(){
@@ -616,16 +625,42 @@ read_options(){
 	 		19) unauth_files;;
 			20) prohibited_pkgs;;
 			21) misc_sec;;
-			22) final_checks;;
-			23) reboot_machine;;
-			24) run_it_all;;
-			25) easter_egg;;
-			26) exit 0;;
+			22) virus;;
+			23) final_checks;;
+			24) reboot_machine;;
+			25) kitchen_sink;;
+			26) easter_egg;;
+			27) exit 0;
 			*) echo "Invalid Option."
 			;;
 		esac
 	;;
 	}
+
+
+main2() {
+	while true
+	do
+		clear
+		show_menu
+		read_options
+	done
+
+    
+}
+
+
+main() {
+    prerequisites
+	require_root
+
+    mkdir -p "${LOG_FILE%/*}"
+    touch "${LOG_FILE}"
+
+    echo "Success: Running with root privileges."
+    echo "Security hardening script starting..."
+	main2
+}
 
 
 main "$@"
