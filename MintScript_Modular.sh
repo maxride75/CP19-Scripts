@@ -108,7 +108,8 @@ forensics() {
 	if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
 		echo "Nice job!"
 	else
-        echo "Forensics help is in /home/$TARGET_USER/forensics.txt, but help can also be found by googling..."
+        cd ${HOME_DIR}
+		echo "Forensics help is in ${HOME_DIR}/forensics.txt, but help can also be found by googling..."
 		echo "------FORENSICS HELP-------" > forensics.txt
 		echo "sha256sum _file_ for a SHA256 filehash" >> forensics.txt
 		echo "md5sum _file_ for a MD5 filehash" >> forensics.txt
@@ -140,14 +141,19 @@ update() {
     read -p "Press [Enter} to continue... "
 }
 install_packages() {
-    log "Installing required packages..."
+    echo "Installing required packages..."
+	log "Installing required packages..."
     apt update -y >/dev/null
     apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
+	read -p "Press [Enter] to continue... "
 }
 
 configure_firewall() {
-    log "Enabling UFW firewall..."
+    echo "Enabling firewall..."
+	log "Enabling UFW firewall..."
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
+	echo "Firewall has been enabled!"
+	read -p "Press [Enter] to continue... "
 }
 
 configure_pam() {
@@ -210,6 +216,7 @@ check_and_manage_admins() {
     else
         echo "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
+	read -p "Press [Enter] to continue... "
 }
 
 check_and_manage_users() {
@@ -312,6 +319,7 @@ manage_local_users_and_groups() {
                 ;;
         esac
     done
+	read -p "Press [Enter] to continue... "
 }
 adminpwd() {
     echo "Changing admin passwords!"
@@ -320,8 +328,8 @@ adminpwd() {
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
     done
-
-    }
+	read -p "Press [Enter] to continue... "
+}
 
 userpwd() {
     echo "Changing user passwords! If a user doesn't have one, it has been added for them!"
@@ -330,6 +338,7 @@ userpwd() {
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
     done
+read -p "Press [Enter] to continue... "
 }
 
 configure_login_defs() {
@@ -340,6 +349,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_MIN_DAYS" "20"
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     echo "/etc/login.defs updated successfully."
+	read -p "Press [Enter] to continue... "
 }
 
 misc_sec() {
@@ -377,6 +387,7 @@ misc_sec() {
 	set_config_value "/etc/sysctl.conf" "fs.protected_symlinks =" "1"
 
 	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
+	read -p "Press [Enter] to continue... "
 }
 
 configure_ssh() {
@@ -399,15 +410,19 @@ configure_ssh() {
     set_config_value "${ssh_config}" "MaxAuthTries" "6"
 	echo "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
+	read -p "Press [Enter] to continue... "
 }
 
 root_lock() {
     echo "Locking the root account!"
 	passwd -l root || warn "Failed to lock root account."
+	read -p "Press [Enter] to continue... "
 }
 sysrq() {
 	echo "Disabling sysrq!"
 	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
+	sysctl --system || warn "sysctl --system returned a non-zero exit status."
+	read -p "Press [Enter] to continue... "
 }
 reperm_files() {
     echo "Making sure critical files are permissioned correctly!"
@@ -416,7 +431,8 @@ reperm_files() {
     chmod 440 /etc/sudoers
     chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
     chmod 644 passwd
-    cd $HOMEDIR
+    cd ${HOME_DIR}
+	read -p "Press [Enter] to continue... "
 }
 
 easter_egg() {
@@ -426,8 +442,8 @@ easter_egg() {
 nmap() {
 	apt install nmap -y
 	echo "Scanning ports!"
-	nmap -sT -o $HOMEDIR/nmap.txt localhost
-	echo "This machine's ports have been scanned, ouput is in $HOMEDIR/nmap.txt"
+	nmap -sT -o ${HOME_DIR}/nmap.txt localhost
+	echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
 	read -p "Press [Enter] to continue... "
 }
@@ -527,6 +543,7 @@ prohibited_pkgs() {
 		echo "Removing $pkg!"
 		apt purge $pkg
 	done
+	read -p "Press [Enter] to continue... "
 }
 	
 unauth_files() {
@@ -539,6 +556,7 @@ unauth_files() {
 pwd_pol() {
 	echo "Adding a password complexity policy!"
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+	read -p "Press [Enter] to continue... "
 }
 
 virus() {
@@ -552,7 +570,8 @@ virus() {
 	rkhunter -c 
 	echo "Checking for common privelege escalation vectors!"
 	unix-privesc-check standard
-	
+	read -p "Press [Enter] to continue... "
+}
 
 reboot_machine() {
 	if prompt_yes_no "Would you like to reboot the machine to apply changes? 
@@ -561,6 +580,7 @@ reboot_machine() {
 	else
 		echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
 	fi
+	read -p "Press [Enter] to continue... "
 }
 
 final_checks() {
@@ -569,6 +589,8 @@ final_checks() {
     echo "Make sure to take a look at virusscan.txt to see if there are any viruses."
     echo "MAKE SURE TO TURN ON AUTOUPDATE!"
 	echo "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
+	echo "Make sure to check the log in ${LOGFILE} to see if there were any errors!"
+	read -p "Press [Enter] to continue... "
 }
 
 kitchen_sink() {
@@ -602,14 +624,9 @@ kitchen_sink() {
 
 show_menu(){
 	
-echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-echo "           ██╗   ██╗██████╗ ██╗   ██╗███╗   ██╗████████╗██╗   ██╗         "
-echo "           ██║   ██║██╔══██╗██║   ██║████╗  ██║╚══██╔══╝██║   ██║         "
-echo "           ██║   ██║██████╔╝██║   ██║██╔██╗ ██║   ██║   ██║   ██║         "
-echo "           ██║   ██║██╔══██╗██║   ██║██║╚██╗██║   ██║   ██║   ██║         "
-echo "           ╚██████╔╝██████╔╝╚██████╔╝██║ ╚████║   ██║   ╚██████╔╝         "
-echo "            ╚═════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝   ╚═╝    ╚═════╝          "
-echo "~~~~~~~~~~~~~~~~Written by: Colin Brunner~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+fastfetch --logo auto
+echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+echo "~~~~~~~~~~~~~~~~Written by: Colin Brunner and the BWHS-3 CP19 team~~~~~~~~"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo " "
 echo "1) Forensics Questions								2) Update the machine."
@@ -682,7 +699,8 @@ main2() {
 main() {
     prerequisites
 	require_root
-
+	apt install fastfetch
+	
     mkdir -p "${LOG_FILE%/*}"
     touch "${LOG_FILE}"
 
