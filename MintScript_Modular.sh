@@ -142,7 +142,7 @@ update() {
 install_packages() {
     log "Installing required packages..."
     apt update -y >/dev/null
-    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon nmap rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
+    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
 }
 
 configure_firewall() {
@@ -314,7 +314,8 @@ manage_local_users_and_groups() {
     done
 }
 adminpwd() {
-    for i in (cat admins.txt); do
+    echo "Changing admin passwords!"
+	for i in (cat admins.txt); do
         if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
@@ -323,7 +324,8 @@ adminpwd() {
     }
 
 userpwd() {
-    for i in (cat users.txt); do
+    echo "Changing user passwords! If a user doesn't have one, it has been added for them!"
+	for i in (cat users.txt); do
         if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
@@ -341,8 +343,10 @@ configure_login_defs() {
 }
 
 misc_sec() {
-    echo "kernel.dmesg_restrict=1" | tee -a /etc/sysctl.d/6-dmesg-sudo.conf >/dev/null
+    echo "Restricting users from dmesg!"
+	echo "kernel.dmesg_restrict=1" | tee -a /etc/sysctl.d/6-dmesg-sudo.conf >/dev/null
 
+	echo "Changing all users and admins' password ages to 90 days!"
     while IFS= read -r user; do
         [[ -z "${user}" ]] && continue
         if [[ "${user}" != "${TARGET_USER}" ]]; then
@@ -352,15 +356,33 @@ misc_sec() {
 
     echo "All other unhidden users' maximum password age was set to 60 days."
     read -r -p "Check for hidden users now and adjust them manually if needed. Press [Enter] to continue..." </dev/tty
-    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies" "1"
-    set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space" "2"
-    sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
+    echo "Changing sysctl parameters!"
+	
+	set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies =" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf/all.rp_filter =" "1"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.rp_filter =" "1"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_source_route =" "0"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_source_route =" "0"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_redirects =" "0"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_redirects =" "0"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.send_redirects =" "0"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.log_martians =" "1"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_echo_ignore_broadcasts =" "1"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_ignore_bogus_error_responses =" "1"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.ip_forward =" "0"
+	set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_rfc1337 =" "1"
+	set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space =" "2"
+	set_config_value "/etc/sysctl.conf" "fs.suid_dumpable =" "0"
+	set_config_value "/etc/sysctl.conf" "fs.protected_hardlinks =" "1"
+	set_config_value "/etc/sysctl.conf" "fs.protected_symlinks =" "1"
+
+	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
 }
 
 configure_ssh() {
     log "Checking SSH settings..."
     if ! prompt_yes_no "Does the README say users need to log in via SSH?"; then
-        echo "If SSH is running and not required, stop it with: systemctl stop ssh"
+        echo "If SSH is running and not required, stop it with systemctl stop ssh!"
         return 0
     fi
 
@@ -370,23 +392,26 @@ configure_ssh() {
         warn "No sshd_config file found. Skipping SSH hardening."
         return 0
     fi
-
     set_config_value "${ssh_config}" "PermitRootLogin" "no"
     set_config_value "${ssh_config}" "UsePAM" "yes"
     set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
     set_config_value "${ssh_config}" "DisableForwarding" "yes"
     set_config_value "${ssh_config}" "MaxAuthTries" "6"
+	echo "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
 }
 
 root_lock() {
-    passwd -l root || warn "Failed to lock root account."
+    echo "Locking the root account!"
+	passwd -l root || warn "Failed to lock root account."
 }
 sysrq() {
+	echo "Disabling sysrq!"
 	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
 }
 reperm_files() {
-    cd /etc
+    echo "Making sure critical files are permissioned correctly!"
+	cd /etc
     chown root:root sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg
     chmod 440 /etc/sudoers
     chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
@@ -399,6 +424,8 @@ easter_egg() {
 }
 
 nmap() {
+	apt install nmap -y
+	echo "Scanning ports!"
 	nmap -sT -o $HOMEDIR/nmap.txt localhost
 	echo "This machine's ports have been scanned, ouput is in $HOMEDIR/nmap.txt"
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
@@ -406,7 +433,7 @@ nmap() {
 }
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a service? (nginX/Apache/FTP/Mysql/N)): " "X A F M N")"
+    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/N)): " "X A F M N")"
 
     case "${choice}" in
         X)
@@ -479,6 +506,7 @@ EOF
             ;;
         N)
             echo "If a service is listed in the README but is not addressed here, research it manually."
+			echo "If the computer is running a service not specified in the README, use systemctl stop pkg"
             ;;
         *)
             echo "Invalid response."
@@ -487,33 +515,34 @@ EOF
 }
 
 prohibited_pkgs() {
-	pkg=$("hollywood")
+	local pkg="hollywood"
 	apt list --installed|grep -v '\<lib' > installed_pkgs.txt
-	echo "Removing John, Hydra, Transmission, Warpinator,"
+	echo "Removing bad packages!"
 	apt purge john hydra transmission-gtk warpinator ophcrack
+	echo "If you want to remove other software, the Mint Store is a good place to start!"
 	while [[ $pkg != "none" ]]; do
 		echo "Current installed packages are in installed_pkgs.txt. If you can't find a package but you know it is installed, google it.
-		Note: Please don't uninstall netcat until you are done with nmap because nmap requires netcat to function."
-		read -p  "If you need to uninstall something, type it in here. If you don't, type none. " pkg
+		Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
+		read -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
 		echo "Removing $pkg!"
 		apt purge $pkg
 	done
 }
 	
 unauth_files() {
-    locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
+    echo "Finding bad files!"
+	locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
     ls /usr/games > unauthfiles.txt
-    freshclam
-    clamscan -r -i -l virusscan.txt &
-    echo "Virus scan is currently running and will output to virus.txt."
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
 
 pwd_pol() {
+	echo "Adding a password complexity policy!"
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
 }
 
 virus() {
+	echo "Scanning for viruses!"
 	freshclam
     clamscan -r -i -l virusscan.txt &
     echo "Virus scan is currently running and will output to virus.txt."
