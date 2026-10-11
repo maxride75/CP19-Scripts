@@ -133,9 +133,9 @@ update() {
         echo "Update manually as required by the README."
     else
         echo "Proceeding with package updates..."
-        apt update -y >/dev/null
+        apt-get update -y >/dev/null
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
-        apt upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+        apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
         echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
     fi
     read -p "Press [Enter} to continue... "
@@ -143,8 +143,8 @@ update() {
 install_packages() {
     echo "Installing required packages..."
 	log "Installing required packages..."
-    apt update -y >/dev/null
-    apt install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
+    apt-get update -y >/dev/null
+    apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
 	read -p "Press [Enter] to continue... "
 }
 
@@ -393,8 +393,15 @@ misc_sec() {
 configure_ssh() {
     log "Checking SSH settings..."
     if ! prompt_yes_no "Does the README say users need to log in via SSH?"; then
-        echo "If SSH is running and not required, stop it with systemctl stop ssh!"
+		if prompt_yes_no "Would you like to attempt to uninstall SSH?"; then
+        apt-get purge openssh-server
         return 0
+		else
+			echo "Stopping and disabling sshds!"
+			systemctl stop sshd || warn "Stopping sshd returned a non-zero error code!" 
+			systemctl disable sshd  || warn "Disabling sshd returned a non-zero error code!"
+			return 0
+		fi
     fi
 
     echo "Securing SSH!"
@@ -407,7 +414,11 @@ configure_ssh() {
     set_config_value "${ssh_config}" "UsePAM" "yes"
     set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
     set_config_value "${ssh_config}" "DisableForwarding" "yes"
-    set_config_value "${ssh_config}" "MaxAuthTries" "6"
+    set_config_value "${ssh_config}" "X11Forwarding" "no"
+	set_config_value "${ssh_config}" "MaxAuthTries" "6"
+	set_config_value "${ssh_config}" "PermitTunnel" "no"
+	set_config_value "${ssh_config}" "GatewayPorts" "no"
+	set_config_value "${ssh_config}" "MaxAuthTries" "6"
 	echo "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
 	read -p "Press [Enter] to continue... "
@@ -440,7 +451,7 @@ easter_egg() {
 }
 
 nmap() {
-	apt install nmap -y
+	apt-get install nmap -y
 	echo "Scanning ports!"
 	nmap -sT -o ${HOME_DIR}/nmap.txt localhost
 	echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
@@ -449,7 +460,7 @@ nmap() {
 }
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/N)): " "X A F M N")"
+    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/Php/N)): " "X A F M N P")"
 
     case "${choice}" in
         X)
@@ -524,25 +535,39 @@ EOF
             echo "If a service is listed in the README but is not addressed here, research it manually."
 			echo "If the computer is running a service not specified in the README, use systemctl stop pkg"
             ;;
+		P)
+			echo "PHP security depends on what process it runs under. To secure it, googling is necessary."
+			echo "To identify what process it runs under, look for these!"
+			echo "Normally the PHP process will look like php-form or php-fpmX.X" 
+			echo "But, if Apache is running, PHP will not be in the process list, because it runs under the apache2 process."
+			echo "Also, if the computer is running Nginx, PHP's name will be php-fpm."
+			echo "To find these, use ps aux|grep php/apache2/httpd to find it!"
         *)
             echo "Invalid response."
             ;;
     esac
+	read -p "Press [Enter] to continue... "
 }
 
 prohibited_pkgs() {
 	local pkg="hollywood"
 	apt list --installed|grep -v '\<lib' > installed_pkgs.txt
 	echo "Removing bad packages!"
-	apt purge john hydra transmission-gtk warpinator ophcrack
+	apt-get purge john hydra transmission-gtk warpinator ophcrack doona xprobe squid 
+	apt-get autoremove
+	echo "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
 	echo "If you want to remove other software, the Mint Store is a good place to start!"
 	while [[ $pkg != "none" ]]; do
 		echo "Current installed packages are in installed_pkgs.txt. If you can't find a package but you know it is installed, google it.
 		Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
 		read -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
 		echo "Removing $pkg!"
-		apt purge $pkg
+		apt-get purge $pkg
 	done
+	if prompt_yes_no "Would you like to uninstalll uneeded dependencies?"; then
+        apt-get autoremove
+	fi
+	apt-get autoclean
 	read -p "Press [Enter] to continue... "
 }
 	
@@ -699,7 +724,7 @@ main2() {
 main() {
     prerequisites
 	require_root
-	apt install fastfetch
+	apt-get install fastfetch
 	
     mkdir -p "${LOG_FILE%/*}"
     touch "${LOG_FILE}"
