@@ -308,7 +308,8 @@ manage_local_users_and_groups() {
                 echo "Making user ${user_name}"
                 useradd -m -s /bin/nologin "${user_name}" || warn "User ${user_name} may already exist."
                 echo "User ${user_name} made."
-                break
+                passwd -E ${user_name}
+				break
                 ;;
             N)
                 echo "If you need to, use: adduser or usermod -aG group"
@@ -323,7 +324,7 @@ manage_local_users_and_groups() {
 }
 adminpwd() {
     echo "Changing admin passwords!"
-	for i in (cat admins.txt); do
+	for i in admins.txt; do
         if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
@@ -333,7 +334,7 @@ adminpwd() {
 
 userpwd() {
     echo "Changing user passwords! If a user doesn't have one, it has been added for them!"
-	for i in (cat users.txt); do
+	for i in users.txt; do
         if [[ "$i" != "$TARGET_USER" ]]; then
             echo "$i:$(pwgen -sy 20 1)" | chpasswd
         fi
@@ -649,7 +650,7 @@ kitchen_sink() {
 
 show_menu(){
 	
-fastfetch --logo auto
+fastfetch --structure logo --logo linuxmint
 echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo "~~~~~~~~~~~~~~~~Written by: Colin Brunner and the BWHS-3 CP19 team~~~~~~~~"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -724,7 +725,7 @@ main2() {
 main() {
     prerequisites
 	require_root
-	apt-get install fastfetch
+	apt-get install fastfetch -y > /dev/null
 	
     mkdir -p "${LOG_FILE%/*}"
     touch "${LOG_FILE}"
