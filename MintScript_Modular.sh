@@ -544,6 +544,8 @@ EOF
 			echo "But, if Apache is running, PHP will not be in the process list, because it runs under the apache2 process."
 			echo "Also, if the computer is running Nginx, PHP's name will be php-fpm."
 			echo "To find these, use ps aux|grep php/apache2/httpd to find it!"
+			;;
+			
         *)
             echo "Invalid response."
             ;;
