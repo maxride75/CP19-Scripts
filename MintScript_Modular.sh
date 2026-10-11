@@ -650,6 +650,9 @@ kitchen_sink() {
 	reboot_machine
 }
 
+exit_script(){
+	exit 0
+}
 
 show_menu(){
 	
@@ -676,40 +679,39 @@ echo "27) Exit"
 
 read_options(){
 	
-	read -p "Pease select item you wish to do: " choice
+	read -p "What would you like to do? " choice
 
-		case $choice in
-			1) forensics;;
-			2) update;;
-			3) install_packages;;
-			4) root_lock;;
-			5) configure_firewall;;
-			6) check_and_manage_admins;;
-			7) check_and_manage_users;;
-			8) manage_local_users_and_groups;;
-			9) adminpwd;;
-			10) userpwd;;
-			11) configure_pam;;
-			12) pwd_pol;;
-			13) configure_login_defs;;
-			14) configure_ssh;;
-			15) configure_web_services;;
-			16) sysrq;;
-			17) reperm_files;;
-			18) nmap;;
-	 		19) unauth_files;;
-			20) prohibited_pkgs;;
-			21) misc_sec;;
-			22) virus;;
-			23) final_checks;;
-			24) reboot_machine;;
-			25) kitchen_sink;;
-			26) easter_egg;;
-			27) exit 0;
-			*) echo "Invalid Option."
-			;;
-		esac
-	;;
+	case $choice in
+		1) forensics;;
+		2) update;;
+		3) install_packages;;
+		4) root_lock;;
+		5) configure_firewall;;
+		6) check_and_manage_admins;;
+		7) check_and_manage_users;;
+		8) manage_local_users_and_groups;;
+		9) adminpwd;;
+		10) userpwd;;
+		11) configure_pam;;
+		12) pwd_pol;;
+		13) configure_login_defs;;
+		14) configure_ssh;;
+		15) configure_web_services;;
+		16) sysrq;;
+		17) reperm_files;;
+		18) nmap;;
+	 	19) unauth_files;;
+		20) prohibited_pkgs;;
+		21) misc_sec;;
+		22) virus;;
+		23) final_checks;;
+		24) reboot_machine;;
+		25) kitchen_sink;;
+		26) easter_egg;;
+		27) exit_script;;
+		*) echo "Invalid Option."
+		;;
+	esac
 	}
 
 
