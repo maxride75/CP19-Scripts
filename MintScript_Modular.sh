@@ -94,13 +94,13 @@ prerequisites() {
 	echo "----------------------PREREQUISITES-------------------------"
 	echo "This script will fail if these are not done correctly!!!!"
 	echo "This part is step-by-step, and please press [Enter] after each step is done."
-	read -p "Launch Update Manager and make sure apt repos are set up correctly."
-	read -p "Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS!"
-	read -p "Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
-	read -p "If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
-	read -p "Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
+	read -r -p "Launch Update Manager and make sure apt repos are set up correctly."
+	read -r -p "Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS!"
+	read -r -p "Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
+	read -r -p "If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
+	read -r -p "Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
 	user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
-	read -p "If you finished all of those, great! Press [Enter] to continue! "
+	read -r -p "If you finished all of those, great! Press [Enter] to continue! "
 	}
 	
 
@@ -108,7 +108,7 @@ forensics() {
 	if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
 		echo "Nice job!"
 	else
-        cd ${HOME_DIR}
+        cd "${HOME_DIR}"
 		echo "Forensics help is in ${HOME_DIR}/forensics.txt, but help can also be found by googling..."
 		echo "------FORENSICS HELP-------" > forensics.txt
 		echo "sha256sum _file_ for a SHA256 filehash" >> forensics.txt
@@ -124,7 +124,7 @@ forensics() {
 		and if you don't get points, try the other IP from the pcap file." >> forensics.txt
 		echo "Take a look at it if you need help!"
     fi
-    read -p "Press [Enter] to continue... "
+    read -r -p "Press [Enter] to continue... "
     
 }
 
@@ -138,14 +138,14 @@ update() {
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
         echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
     fi
-    read -p "Press [Enter} to continue... "
+    read -r -p "Press [Enter} to continue... "
 }
 install_packages() {
     echo "Installing required packages..."
 	log "Installing required packages..."
     apt-get update -y >/dev/null
     apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 configure_firewall() {
@@ -153,7 +153,7 @@ configure_firewall() {
 	log "Enabling UFW firewall..."
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
 	echo "Firewall has been enabled!"
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 configure_pam() {
@@ -216,7 +216,7 @@ check_and_manage_admins() {
     else
         echo "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 check_and_manage_users() {
@@ -258,9 +258,9 @@ check_and_manage_users() {
 		cat uid0.txt
 		if prompt_yes_no "Would you like to change their UID (y/n): "; then
 			BADUSER=$(cat uid0.txt)
-			killall -u $BADUSER
-			usermod -u 3024 $BADUSER
-			groupmod -g 3024 $BADUSER
+			killall -u "$BADUSER"
+			usermod -u 3024 "$BADUSER"
+			groupmod -g 3024 "$BADUSER"
 			fi
 	fi
 	
@@ -268,7 +268,7 @@ check_and_manage_users() {
 	echo "These users have a UID that is less than 1000, meaning they are hidden"
     awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > hiddenuser.txt
     echo "Make sure they are authorized, because the script does not scan for hidden users."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 manage_local_users_and_groups() {
@@ -308,7 +308,7 @@ manage_local_users_and_groups() {
                 echo "Making user ${user_name}"
                 useradd -m -s /bin/nologin "${user_name}" || warn "User ${user_name} may already exist."
                 echo "User ${user_name} made."
-                passwd -E ${user_name}
+                passwd -E "${user_name}"
 				break
                 ;;
             N)
@@ -320,7 +320,7 @@ manage_local_users_and_groups() {
                 ;;
         esac
     done
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 adminpwd() {
     echo "Changing admin passwords!"
@@ -330,7 +330,7 @@ adminpwd() {
             echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
     done < admins.txt
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 userpwd() {
@@ -341,7 +341,7 @@ userpwd() {
             echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
     done < users.txt
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 configure_login_defs() {
     log "Configuring login.defs password policy..."
@@ -351,7 +351,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_MIN_DAYS" "20"
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     echo "/etc/login.defs updated successfully."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 misc_sec() {
@@ -389,7 +389,7 @@ misc_sec() {
 	set_config_value "/etc/sysctl.conf" "fs.protected_symlinks =" "1"
 
 	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 configure_ssh() {
@@ -423,19 +423,19 @@ configure_ssh() {
 	set_config_value "${ssh_config}" "MaxAuthTries" "6"
 	echo "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 root_lock() {
     echo "Locking the root account!"
 	passwd -l root || warn "Failed to lock root account."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 sysrq() {
 	echo "Disabling sysrq!"
 	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
 	sysctl --system || warn "sysctl --system returned a non-zero exit status."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 reperm_files() {
     echo "Making sure critical files are permissioned correctly!"
@@ -444,8 +444,8 @@ reperm_files() {
     chmod 440 /etc/sudoers
     chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
     chmod 644 passwd
-    cd ${HOME_DIR}
-	read -p "Press [Enter] to continue... "
+    cd "${HOME_DIR}"
+	read -r -p "Press [Enter] to continue... "
 }
 
 easter_egg() {
@@ -455,10 +455,10 @@ easter_egg() {
 nmap() {
 	apt-get install nmap -y
 	echo "Scanning ports!"
-	nmap -sT -o ${HOME_DIR}/nmap.txt localhost
+	nmap -sT -o "${HOME_DIR}"/nmap.txt localhost
 	echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 configure_web_services() {
     local choice
@@ -550,7 +550,7 @@ EOF
             echo "Invalid response."
             ;;
     esac
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 prohibited_pkgs() {
@@ -564,20 +564,20 @@ prohibited_pkgs() {
 	while [[ $pkg != "none" ]]; do
 		echo "Current installed packages are in installed_pkgs.txt. If you can't find a package but you know it is installed, google it.
 		Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
-		read -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
+		read -r -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
 		echo "Removing $pkg!"
-		apt-get purge $pkg
+		apt-get purge "$pkg"
 	done
 	if prompt_yes_no "Would you like to uninstalll uneeded dependencies?"; then
         apt-get autoremove
 	fi
 	apt-get autoclean
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 	
 unauth_files() {
     echo "Finding bad files!"
-	locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > /home/$SUDO_USER/unauthfiles.txt
+	locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > "${HOME_DIR}"/unauthfiles.txt
     ls /usr/games > unauthfiles.txt
     read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
@@ -585,7 +585,7 @@ unauth_files() {
 pwd_pol() {
 	echo "Adding a password complexity policy!"
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 virus() {
@@ -599,7 +599,7 @@ virus() {
 	rkhunter -c 
 	echo "Checking for common privelege escalation vectors!"
 	unix-privesc-check standard
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 reboot_machine() {
@@ -609,7 +609,7 @@ reboot_machine() {
 	else
 		echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
 	fi
-	read -p "Press [Enter] to continue... "
+	read -r -p "Press [Enter] to continue... "
 }
 
 final_checks() {
@@ -618,8 +618,8 @@ final_checks() {
     echo "Make sure to take a look at virusscan.txt to see if there are any viruses."
     echo "MAKE SURE TO TURN ON AUTOUPDATE!"
 	echo "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
-	echo "Make sure to check the log in ${LOGFILE} to see if there were any errors!"
-	read -p "Press [Enter] to continue... "
+	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
+	read -r -p "Press [Enter] to continue... "
 }
 
 kitchen_sink() {
@@ -679,7 +679,7 @@ echo "27) Exit"
 
 read_options(){
 	
-	read -p "What would you like to do? " choice
+	read -r -p "What would you like to do? " choice
 
 	case $choice in
 		1) forensics;;
