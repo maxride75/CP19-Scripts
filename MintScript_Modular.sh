@@ -324,24 +324,25 @@ manage_local_users_and_groups() {
 }
 adminpwd() {
     echo "Changing admin passwords!"
-	for i in admins.txt; do
-        if [[ "$i" != "$TARGET_USER" ]]; then
-            echo "$i:$(pwgen -sy 20 1)" | chpasswd
+	while IFS= read -r user; do
+        [[ -z "${user}" ]] && continue
+        if [[ "$user" != "$TARGET_USER" ]]; then
+            echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
-    done
+    done < admins.txt
 	read -p "Press [Enter] to continue... "
 }
 
 userpwd() {
     echo "Changing user passwords! If a user doesn't have one, it has been added for them!"
-	for i in users.txt; do
-        if [[ "$i" != "$TARGET_USER" ]]; then
-            echo "$i:$(pwgen -sy 20 1)" | chpasswd
+	while IFS= read -r user; do
+        [[ -z "${user}" ]] && continue
+        if [[ "$user" != "$TARGET_USER" ]]; then
+            echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
-    done
-read -p "Press [Enter] to continue... "
+    done < users.txt
+	read -p "Press [Enter] to continue... "
 }
-
 configure_login_defs() {
     log "Configuring login.defs password policy..."
     local config_doc="/etc/login.defs"
