@@ -138,7 +138,7 @@ update() {
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
         echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
     fi
-    read -r -p "Press [Enter} to continue... "
+    read -r -p "Press [Enter] to continue... "
 }
 install_packages() {
     echo "Installing required packages..."
@@ -399,9 +399,9 @@ configure_ssh() {
         apt-get purge openssh-server
         return 0
 		else
-			echo "Stopping and disabling sshds!"
-			systemctl stop sshd || warn "Stopping sshd returned a non-zero error code!" 
-			systemctl disable sshd  || warn "Disabling sshd returned a non-zero error code!"
+			echo "Stopping and disabling sshd!"
+			systemctl stop ssh || warn "Stopping sshd returned a non-zero error code!" 
+			systemctl disable ssh  || warn "Disabling sshd returned a non-zero error code!"
 			return 0
 		fi
     fi
@@ -441,8 +441,8 @@ reperm_files() {
     echo "Making sure critical files are permissioned correctly!"
 	cd /etc
     chown root:root sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg
-    chmod 440 /etc/sudoers
-    chmod 600 shadow /boot/grub/grub.cfg ssh/shhd_config 
+    chmod 440 sudoers
+    chmod 600 shadow /boot/grub/grub.cfg ssh/sshd_config 
     chmod 644 passwd
     cd "${HOME_DIR}"
 	read -r -p "Press [Enter] to continue... "
@@ -452,7 +452,7 @@ easter_egg() {
     curl ascii.live/rick
 }
 
-nmap() {
+nmap_machine() {
 	apt-get install nmap -y
 	echo "Scanning ports!"
 	nmap -sT -o "${HOME_DIR}"/nmap.txt localhost
@@ -641,7 +641,7 @@ kitchen_sink() {
 	configure_web_services
 	sysrq
 	reperm_files
-	nmap
+	nmap_machine
 	unauth_files
 	prohibited_pkgs
 	misc_sec
@@ -656,8 +656,9 @@ exit_script(){
 
 show_menu(){
 	
-fastfetch --structure logo --logo linuxmint
+
 echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+fastfetch --structure logo --logo linuxmint
 echo "~~~~~~~~~~~~~~~~Written by: Colin Brunner and the BWHS-3 CP19 team~~~~~~~~"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo " "
@@ -699,7 +700,7 @@ read_options(){
 		15) configure_web_services;;
 		16) sysrq;;
 		17) reperm_files;;
-		18) nmap;;
+		18) nmap_machine;;
 	 	19) unauth_files;;
 		20) prohibited_pkgs;;
 		21) misc_sec;;
