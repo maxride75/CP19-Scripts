@@ -449,7 +449,8 @@ reperm_files() {
 }
 
 easter_egg() {
-    curl ascii.live/rick
+   apt-get install byobu -y > /dev/null
+   tmux new-window -n "Secret Easter Egg" "curl ascii.live/rick"
 }
 
 nmap_machine() {
@@ -651,6 +652,8 @@ kitchen_sink() {
 }
 
 exit_script(){
+	clear
+	echo "bye uwu :3"
 	exit 0
 }
 
