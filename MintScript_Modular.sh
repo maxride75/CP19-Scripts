@@ -738,8 +738,8 @@ main() {
 
     echo "Success: Running with root privileges."
     echo "Security hardening script starting..."
-	main2
+	
 }
 
-
 main "$@"
+main2
