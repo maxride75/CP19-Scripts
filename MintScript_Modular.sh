@@ -729,9 +729,9 @@ main2() {
 
 
 main() {
-    prerequisites
+    apt-get install fastfetch -y > /dev/null &
 	require_root
-	apt-get install fastfetch -y > /dev/null
+	prerequisites
 	
     mkdir -p "${LOG_FILE%/*}"
     touch "${LOG_FILE}"
