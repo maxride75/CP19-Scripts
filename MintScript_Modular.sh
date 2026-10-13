@@ -26,6 +26,7 @@ require_root() {
         echo "Error: This script must be run as root or with sudo." >&2
         exit 1
     fi
+	echo "Success! Root achieved! Running the hardening script!"
 }
 
 prompt_yes_no() {
@@ -124,7 +125,7 @@ forensics() {
 		and if you don't get points, try the other IP from the pcap file." >> forensics.txt
 		echo "Take a look at it if you need help!"
     fi
-    read -r -p "Press [Enter] to continue... "
+    
     
 }
 
@@ -138,14 +139,14 @@ update() {
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
         echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
     fi
-    read -r -p "Press [Enter] to continue... "
+    
 }
 install_packages() {
     echo "Installing required packages..."
 	log "Installing required packages..."
     apt-get update -y >/dev/null
     apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 configure_firewall() {
@@ -153,7 +154,7 @@ configure_firewall() {
 	log "Enabling UFW firewall..."
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
 	echo "Firewall has been enabled!"
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 configure_pam() {
@@ -216,7 +217,7 @@ check_and_manage_admins() {
     else
         echo "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 check_and_manage_users() {
@@ -268,7 +269,7 @@ check_and_manage_users() {
 	echo "These users have a UID that is less than 1000, meaning they are hidden"
     awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > hiddenuser.txt
     echo "Make sure they are authorized, because the script does not scan for hidden users."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 manage_local_users_and_groups() {
@@ -320,7 +321,7 @@ manage_local_users_and_groups() {
                 ;;
         esac
     done
-	read -r -p "Press [Enter] to continue... "
+	
 }
 adminpwd() {
     echo "Changing admin passwords!"
@@ -330,7 +331,7 @@ adminpwd() {
             echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
     done < admins.txt
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 userpwd() {
@@ -341,7 +342,7 @@ userpwd() {
             echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
     done < users.txt
-	read -r -p "Press [Enter] to continue... "
+	
 }
 configure_login_defs() {
     log "Configuring login.defs password policy..."
@@ -351,7 +352,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_MIN_DAYS" "20"
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     echo "/etc/login.defs updated successfully."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 misc_sec() {
@@ -389,7 +390,7 @@ misc_sec() {
 	set_config_value "/etc/sysctl.conf" "fs.protected_symlinks =" "1"
 
 	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 configure_ssh() {
@@ -423,19 +424,19 @@ configure_ssh() {
 	set_config_value "${ssh_config}" "MaxAuthTries" "6"
 	echo "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 root_lock() {
     echo "Locking the root account!"
 	passwd -l root || warn "Failed to lock root account."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 sysrq() {
 	echo "Disabling sysrq!"
 	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
 	sysctl --system || warn "sysctl --system returned a non-zero exit status."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 reperm_files() {
     echo "Making sure critical files are permissioned correctly!"
@@ -445,12 +446,12 @@ reperm_files() {
     chmod 600 shadow /boot/grub/grub.cfg ssh/sshd_config 
     chmod 644 passwd
     cd "${HOME_DIR}"
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 easter_egg() {
    apt-get install byobu -y > /dev/null
-   tmux new-window -n "Secret Easter Egg" "curl ascii.live/rick"
+   tmux -c "curl ascii.live/rick" &
 }
 
 nmap_machine() {
@@ -459,7 +460,7 @@ nmap_machine() {
 	nmap -sT -o "${HOME_DIR}"/nmap.txt localhost
 	echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
-	read -r -p "Press [Enter] to continue... "
+	
 }
 configure_web_services() {
     local choice
@@ -551,7 +552,7 @@ EOF
             echo "Invalid response."
             ;;
     esac
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 prohibited_pkgs() {
@@ -573,7 +574,7 @@ prohibited_pkgs() {
         apt-get autoremove
 	fi
 	apt-get autoclean
-	read -r -p "Press [Enter] to continue... "
+	
 }
 	
 unauth_files() {
@@ -586,7 +587,7 @@ unauth_files() {
 pwd_pol() {
 	echo "Adding a password complexity policy!"
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 virus() {
@@ -600,7 +601,6 @@ virus() {
 	rkhunter -c 
 	echo "Checking for common privelege escalation vectors!"
 	unix-privesc-check standard
-	read -r -p "Press [Enter] to continue... "
 }
 
 reboot_machine() {
@@ -610,7 +610,6 @@ reboot_machine() {
 	else
 		echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
 	fi
-	read -r -p "Press [Enter] to continue... "
 }
 
 final_checks() {
@@ -620,34 +619,56 @@ final_checks() {
     echo "MAKE SURE TO TURN ON AUTOUPDATE!"
 	echo "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
 	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
-	read -r -p "Press [Enter] to continue... "
+	
 }
 
 kitchen_sink() {
-    prerequisites
     forensics
+	read -r -p "Next up is updating the computer! Press [Enter] to continue... "
 	update
+	read -r -p "Next up is installing required packages! Press [Enter] to continue... "
 	install_packages
+	read -r -p "Next up is locking the root account! Press [Enter] to continue... "
     root_lock
+	read -r -p "Next up is configuring the firewall! Press [Enter] to continue... "
 	configure_firewall
+	read -r -p "Next up is managing admins! Press [Enter] to continue... "
 	check_and_manage_admins
+	read -r -p "Next up is managing users! Press [Enter] to continue... "
 	check_and_manage_users
+	read -r -p "Next up is creating users and groups! Press [Enter] to continue... "
 	manage_local_users_and_groups
+	read -r -p "Next up is changing insecure admin passwords! Press [Enter] to continue... "
 	adminpwd
+	read -r -p "Next up is changing insecure user passwords! Press [Enter] to continue... "
 	userpwd
+	read -r -p "Next up is adding an account lockout policy! Press [Enter] to continue... "
 	configure_pam
+	read -r -p "Next up is making a password policy! Press [Enter] to continue... "
 	pwd_pol
+	read -r -p "Next up is configuring password ages! Press [Enter] to continue... "
 	configure_login_defs
+	read -r -p "Next up is securing SSH! Press [Enter] to continue... "
 	configure_ssh
+	read -r -p "Next up is securing web and fileshare services! Press [Enter] to continue... "
 	configure_web_services
+	read -r -p "Next up is disabling SYSRQ! Press [Enter] to continue... "
 	sysrq
+	read -r -p "Next up is repermissioning files! Press [Enter] to continue... "
 	reperm_files
+	read -r -p "Next up is scanning the machine for open ports! Press [Enter] to continue... "
 	nmap_machine
+	read -r -p "Next up is finding unauthorized files! Press [Enter] to continue... "
 	unauth_files
+	read -r -p "Next up is uninstalling bad packages! Press [Enter] to continue... "
 	prohibited_pkgs
+	read -r -p "Next up is making misc security configurations! Press [Enter] to continue... "
 	misc_sec
+	read -r -p "Next up is scanning for viruses! Press [Enter] to continue... "
 	virus
+	read -r -p "Next up is final checks! Press [Enter] to continue... "
 	final_checks
+	read -r -p "And last up is rebooting the machine! Press [Enter] to continue... "
 	reboot_machine
 }
 
@@ -738,9 +759,6 @@ main() {
 	
     mkdir -p "${LOG_FILE%/*}"
     touch "${LOG_FILE}"
-
-    echo "Success: Running with root privileges."
-    echo "Security hardening script starting..."
 	
 }
 
