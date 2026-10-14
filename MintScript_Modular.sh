@@ -621,7 +621,10 @@ final_checks() {
 	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
 	
 }
-
+cleanup() {
+	rm /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
+	apt-get remove byobu nmap unix-privesc-check rkhunter stacer
+}
 kitchen_sink() {
     forensics
 	read -r -p "Next up is updating the computer! Press [Enter] to continue... "
