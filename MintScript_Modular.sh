@@ -622,8 +622,12 @@ final_checks() {
 	
 }
 cleanup() {
+	echo "Cleaning up!"
 	rm /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
-	apt-get remove byobu nmap unix-privesc-check rkhunter stacer
+	echo "Removing unneeded software and dependencies installed by the script!"
+	apt-get remove byobu nmap unix-privesc-check rkhunter stacer fastfetch pwgen -y > /dev/null
+	apt-get autoremove -y > /dev/null
+	apt-get autoclean
 }
 kitchen_sink() {
     forensics
@@ -671,13 +675,17 @@ kitchen_sink() {
 	virus
 	read -r -p "Next up is final checks! Press [Enter] to continue... "
 	final_checks
+	read -r -p "Next up is cleaning up! Press [Enter to continue... "
+	cleanup
 	read -r -p "And last up is rebooting the machine! Press [Enter] to continue... "
 	reboot_machine
 }
 
 exit_script(){
 	clear
-	echo "bye uwu :3"
+	echo "See you soon!"
+	fastfetch --structure logo --logo kali
+	echo "H@CK TH3 PL@N3T!"
 	exit 0
 }
 
