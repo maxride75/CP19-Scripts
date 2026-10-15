@@ -93,13 +93,13 @@ write_pam_file() {
 
 prerequisites() {
 	echo "----------------------PREREQUISITES-------------------------"
-	echo "This script will fail if these are not done correctly!!!!"
+	echo "This script will fail if these are not done correctly!!"
 	echo "This part is step-by-step, and please press [Enter] after each step is done."
-	read -r -p "Launch Update Manager and make sure apt repos are set up correctly."
-	read -r -p "Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS!"
-	read -r -p "Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
-	read -r -p "If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
-	read -r -p "Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
+	read -r -p "1. Launch Update Manager and make sure apt repos are set up correctly, e.g. they can connect!"
+	read -r -p "2. Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS!"
+	read -r -p "3. Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
+	read -r -p "4. If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
+	read -r -p "5. Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
 	user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
 	read -r -p "If you finished all of those, great! Press [Enter] to continue! "
 }
@@ -110,7 +110,7 @@ forensics() {
 		echo "Nice job!"
 	else
         cd "${HOME_DIR}"
-		echo "Forensics help is in ${HOME_DIR}/forensics.txt, but help can also be found by googling..."
+		log "Forensics help is in ${HOME_DIR}/forensics.txt, but help can also be found by googling..."
 		echo "------FORENSICS HELP-------" > forensics.txt
 		echo "sha256sum _file_ for a SHA256 filehash" >> forensics.txt
 		echo "md5sum _file_ for a MD5 filehash" >> forensics.txt
@@ -132,7 +132,7 @@ update() {
         echo "Update manually as required by the README."
     else
         log "Proceeding with package updates..."
-        apt-get update -y >/dev/null
+        apt-get update -y >/dev/null || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
         log "Check for packages installed via Mint Store and uninstall anything that is not approved."
@@ -630,7 +630,7 @@ final_checks() {
     log "Make sure to take a look at virusscan.txt to see if there are any viruses."
     log "MAKE SURE TO TURN ON AUTOUPDATE!"
 	log "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
-	log "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
+	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
 	
 }
 cleanup() {
@@ -699,6 +699,14 @@ exit_script(){
 	fastfetch --structure logo --logo kali
 	echo "Script written by Colin and the rest of BWHS-3 CP19 team"
 	exit 0
+}
+
+inet_check(){
+	if ping -c 4 8.8.8.8 &> /dev/null; then
+    	log "You are connected to the internet!"
+	else
+  	 	err "You are not connected to the internet! This script won't work!"
+	fi
 }
 
 show_menu(){
@@ -776,8 +784,9 @@ main2() {
 
 
 main() {
-    apt-get install fastfetch -y > /dev/null &
-	require_root
+    require_root
+	inet_check
+	apt-get install fastfetch -y > /dev/null &
 	prerequisites
 	
     mkdir -p "${LOG_FILE%/*}"
