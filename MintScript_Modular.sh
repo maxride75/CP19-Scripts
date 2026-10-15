@@ -102,6 +102,7 @@ prerequisites() {
 	read -r -p "5. Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
 	user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
 	read -r -p "If you finished all of those, great! Press [Enter] to continue! "
+	
 }
 	
 
@@ -124,7 +125,7 @@ forensics() {
 		echo "Sometimes Wireshark may be installed as part of a question. If the question asks for an IP, process of elimination usually helps, e.g. enter one IP, save the file,
 		and if you don't get points, try the other IP from the pcap file." >> forensics.txt
 		echo "Take a look at it if you need help!"
-    fi    
+    fi
 }
 
 update() {
@@ -144,12 +145,14 @@ install_packages() {
     apt-get update -y >/dev/null
     apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check gedit >/dev/null || warn "Packages were not installed successfully!"
 	
+	
 }
 
 configure_firewall() {
 	log "Enabling UFW firewall..."
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
 	log "Firewall has been enabled!"
+	
 	
 }
 
@@ -181,6 +184,7 @@ required pam_faillock.so authsucc"
 
     log "PAM modules have been created. Please enable them with pam-auth-update."
     read -r -p "Press [Enter] to continue once pam-auth-update is done..." </dev/tty
+	
 }
 
 check_and_manage_admins() {
@@ -771,13 +775,11 @@ read_options(){
 	}
 
 
-main2() {
-	while true
-	do
-		clear
-		show_menu
-		read_options
-	done
+menu() {
+	clear
+	show_menu
+	read_options
+	
 
     
 }
