@@ -26,7 +26,7 @@ require_root() {
         echo "Error: This script must be run as root or with sudo." >&2
         exit 1
     fi
-	echo "Success! Root achieved! Running the hardening script!"
+	log "Success! Root achieved! Running the hardening script!"
 }
 
 prompt_yes_no() {
@@ -102,7 +102,7 @@ prerequisites() {
 	read -r -p "Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
 	user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
 	read -r -p "If you finished all of those, great! Press [Enter] to continue! "
-	}
+}
 	
 
 forensics() {
@@ -124,36 +124,32 @@ forensics() {
 		echo "Sometimes Wireshark may be installed as part of a question. If the question asks for an IP, process of elimination usually helps, e.g. enter one IP, save the file,
 		and if you don't get points, try the other IP from the pcap file." >> forensics.txt
 		echo "Take a look at it if you need help!"
-    fi
-    
-    
+    fi    
 }
 
 update() {
     if prompt_yes_no "Does the README specify not to update packages?"; then
         echo "Update manually as required by the README."
     else
-        echo "Proceeding with package updates..."
+        log "Proceeding with package updates..."
         apt-get update -y >/dev/null
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
-        echo "Check for packages installed via Mint Store and uninstall anything that is not approved."
+        log "Check for packages installed via Mint Store and uninstall anything that is not approved."
     fi
     
 }
 install_packages() {
-    echo "Installing required packages..."
 	log "Installing required packages..."
     apt-get update -y >/dev/null
-    apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check >/dev/null || warn "Packages were not installed successfully!"
+    apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check gedit >/dev/null || warn "Packages were not installed successfully!"
 	
 }
 
 configure_firewall() {
-    echo "Enabling firewall..."
 	log "Enabling UFW firewall..."
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
-	echo "Firewall has been enabled!"
+	log "Firewall has been enabled!"
 	
 }
 
@@ -183,7 +179,7 @@ Auth-Type: Additional
 Auth:
 required pam_faillock.so authsucc"
 
-    echo "PAM modules have been created. Please enable them with pam-auth-update."
+    log "PAM modules have been created. Please enable them with pam-auth-update."
     read -r -p "Press [Enter] to continue once pam-auth-update is done..." </dev/tty
 }
 
@@ -208,14 +204,15 @@ check_and_manage_admins() {
         if prompt_yes_no "Would you like to demote the suspect admins?"; then
             while IFS= read -r admin; do
                 [[ -z "${admin}" ]] && continue
-                echo "Demoting user: ${admin}"
+                log "Demoting user: ${admin}"
                 deluser "${admin}" sudo adm || warn "Failed to demote ${admin}"
             done < "${HOME_DIR}/maybebadadmins.txt"
+			echo "If a user was demoted, and shouldn't have been, check the log and promote them!"
         else
-            echo "Make sure to demote them for points!"
+            log "Make sure to demote them for points!"
         fi
     else
-        echo "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
+        log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
 	
 }
@@ -242,34 +239,37 @@ check_and_manage_users() {
         if prompt_yes_no "Would you like to delete the suspect users?"; then
             while IFS= read -r user; do
                 [[ -z "${user}" ]] && continue
-                echo "Removing user: ${user}"
+                log "Removing user: ${user}"
                 userdel -r "${user}" || warn "Failed to remove ${user}"
             done < "${HOME_DIR}/maybebadusers.txt"
+			echo "If a user was demoted, and shouldn't have been, check the log and promote them!"
         else
             echo "Make sure to delete them for points!"
         fi
 
     else
-        echo "No suspect users found."
+        log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them, after the script is done!"
     fi
 	
 	awk -F: '$3 == 0 {print $1}' /etc/passwd | grep -v root > uid0.txt
 	if [[ -f "uid0.txt" ]]; then
-		echo "USER WITH ROOT PERMS FOUND!!! DEMOTE IMMEDIATELY!!!"
+		log "USER WITH ROOT PERMS FOUND!!! DEMOTE IMMEDIATELY!!!"
 		cat uid0.txt
 		if prompt_yes_no "Would you like to change their UID (y/n): "; then
 			BADUSER=$(cat uid0.txt)
 			killall -u "$BADUSER"
 			usermod -u 3024 "$BADUSER"
 			groupmod -g 3024 "$BADUSER"
-			fi
+		fi
 	fi
 	
 	
-	echo "These users have a UID that is less than 1000, meaning they are hidden"
-    awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > hiddenuser.txt
-    echo "Make sure they are authorized, because the script does not scan for hidden users."
-	
+	awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > ${HOME_DIR}/hiddenuser.txt
+	if [[ -f "hiddenuser.txt" ]]; then
+		echo "These users have a UID that is less than 1000, meaning they are hidden"
+    	cat hiddenuser.txt
+    	echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
+	fi
 }
 
 manage_local_users_and_groups() {
@@ -277,7 +277,7 @@ manage_local_users_and_groups() {
 
     while true; do
         local choice
-        choice="$(prompt_choice "Does the README require extra user management? (G/U/N): " "G U N")"
+        choice="$(prompt_choice "Does the README require extra user management? N for none... (G/U/N): " "G U N")"
 
         case "${choice}" in
             G)
@@ -289,7 +289,7 @@ manage_local_users_and_groups() {
                 local group_name
                 group_name="$(tr -d '\r' < group.txt)"
                 [[ -n "${group_name}" ]] || { warn "group.txt is empty."; break; }
-                echo "Making group ${group_name}"
+                log "Making group ${group_name}"
                 groupadd "${group_name}" || warn "Group ${group_name} may already exist."
                 while IFS= read -r user; do
                     [[ -z "${user}" ]] && continue
@@ -306,10 +306,11 @@ manage_local_users_and_groups() {
                 local user_name
                 user_name="$(tr -d '\r' < user.txt)"
                 [[ -n "${user_name}" ]] || { warn "user.txt is empty."; break; }
-                echo "Making user ${user_name}"
-                useradd -m -s /bin/nologin "${user_name}" || warn "User ${user_name} may already exist."
-                echo "User ${user_name} made."
+                log "Making user ${user_name}"
+                useradd -m -s /bin/bash "${user_name}" || warn "User ${user_name} may already exist."
+                log "User ${user_name} made."
                 passwd -E "${user_name}"
+				log "User ${user_name}'s password is set to expire when they login."
 				break
                 ;;
             N)
@@ -324,7 +325,11 @@ manage_local_users_and_groups() {
 	
 }
 adminpwd() {
-    echo "Changing admin passwords!"
+    if [[ ! -f "${HOME_DIR}/admins.txt" ]]; then
+        warn "${HOME_DIR}/admins.txt not found. Create it with the approved admin list before continuing."
+        return 0
+    fi
+	log "Changing all admin passwords, except yours!"
 	while IFS= read -r user; do
         [[ -z "${user}" ]] && continue
         if [[ "$user" != "$TARGET_USER" ]]; then
@@ -335,7 +340,11 @@ adminpwd() {
 }
 
 userpwd() {
-    echo "Changing user passwords! If a user doesn't have one, it has been added for them!"
+    if [[ ! -f "${HOME_DIR}/users.txt" ]]; then
+        warn "${HOME_DIR}/users.txt not found. Create it with the approved user list before continuing."
+        return 0
+    fi
+	log "Changing user passwords! If a user doesn't have one, it has been added for them!"
 	while IFS= read -r user; do
         [[ -z "${user}" ]] && continue
         if [[ "$user" != "$TARGET_USER" ]]; then
@@ -351,7 +360,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_MAX_DAYS" "60"
     set_config_value "${config_doc}" "PASS_MIN_DAYS" "20"
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
-    echo "/etc/login.defs updated successfully."
+    log "/etc/login.defs updated successfully."
 	
 }
 
@@ -359,7 +368,7 @@ misc_sec() {
     echo "Restricting users from dmesg!"
 	echo "kernel.dmesg_restrict=1" | tee -a /etc/sysctl.d/6-dmesg-sudo.conf >/dev/null
 
-	echo "Changing all users and admins' password ages to 90 days!"
+	log "Changing all users and admins' password ages to 60 days!"
     while IFS= read -r user; do
         [[ -z "${user}" ]] && continue
         if [[ "${user}" != "${TARGET_USER}" ]]; then
@@ -367,9 +376,9 @@ misc_sec() {
         fi
     done < <(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
 
-    echo "All other unhidden users' maximum password age was set to 60 days."
+    log "All unhidden users' maximum password age (not yours) was set to 60 days."
     read -r -p "Check for hidden users now and adjust them manually if needed. Press [Enter] to continue..." </dev/tty
-    echo "Changing sysctl parameters!"
+    log "Changing sysctl parameters!"
 	
 	set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies =" "1"
     set_config_value "/etc/sysctl.conf" "net.ipv4.conf/all.rp_filter =" "1"
@@ -400,14 +409,14 @@ configure_ssh() {
         apt-get purge openssh-server
         return 0
 		else
-			echo "Stopping and disabling sshd!"
+			log "Stopping and disabling sshd!"
 			systemctl stop ssh || warn "Stopping sshd returned a non-zero error code!" 
 			systemctl disable ssh  || warn "Disabling sshd returned a non-zero error code!"
 			return 0
 		fi
     fi
 
-    echo "Securing SSH!"
+    log "Securing SSH!"
     local ssh_config="/etc/ssh/sshd_config"
     if [[ ! -f "${ssh_config}" ]]; then
         warn "No sshd_config file found. Skipping SSH hardening."
@@ -422,13 +431,13 @@ configure_ssh() {
 	set_config_value "${ssh_config}" "PermitTunnel" "no"
 	set_config_value "${ssh_config}" "GatewayPorts" "no"
 	set_config_value "${ssh_config}" "MaxAuthTries" "6"
-	echo "SSH has been secured, reloading SSH now..."
+	log "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
 	
 }
 
 root_lock() {
-    echo "Locking the root account!"
+    log "Locking the root account!"
 	passwd -l root || warn "Failed to lock root account."
 	
 }
@@ -439,7 +448,7 @@ sysrq() {
 	
 }
 reperm_files() {
-    echo "Making sure critical files are permissioned correctly!"
+    log "Making sure critical files are permissioned correctly!"
 	cd /etc
     chown root:root sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg
     chmod 440 sudoers
@@ -450,13 +459,13 @@ reperm_files() {
 }
 
 easter_egg() {
-   apt-get install byobu -y > /dev/null
-   tmux -c "curl ascii.live/rick" &
+   apt-get install xterm -y > /dev/null
+   xterm -hold -e 'curl ascii.live/rick' &
 }
 
 nmap_machine() {
 	apt-get install nmap -y
-	echo "Scanning ports!"
+	log "Scanning ports!"
 	nmap -sT -o "${HOME_DIR}"/nmap.txt localhost
 	echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
@@ -468,7 +477,7 @@ configure_web_services() {
 
     case "${choice}" in
         X)
-            echo "Securing nginx!"
+            log "Securing nginx!"
             cat > /tmp/nginxconfig.txt <<'EOF'
 (single quote is double quote) In /etc/nginx/nginx.conf, in the http block.
 Uncomment server_tokens off;
@@ -485,13 +494,13 @@ if ($request_method !~ ^(GET|HEAD|POST)$ ) {
     return 405;
 }
 EOF
-            echo "The nginx configuration instructions have been saved to /tmp/nginxconfig.txt"
+            log "The nginx configuration instructions have been saved to /tmp/nginxconfig.txt"
             read -r -p "Add the lines manually to /etc/nginx/nginx.conf, then press [Enter] to continue..." </dev/tty
             nginx -t || warn "nginx config test failed; check the configuration manually."
             systemctl reload nginx || warn "Failed to reload nginx."
             ;;
         A)
-            echo "Securing Apache!"
+            log "Securing Apache!"
             local sec_conf="/etc/apache2/conf-available/security.conf"
             local apache_conf="/etc/apache2/apache2.conf"
             if [[ -f "${sec_conf}" ]]; then
@@ -503,6 +512,8 @@ EOF
             fi
             if [[ -f "${apache_conf}" ]]; then
                 set_config_value "${apache_conf}" "Options" "-Indexes -FollowSymLinks"
+			else
+				warn "Apache base configuration file not found. Skipping Apache hardening."
             fi
             read -r -p "Apache has been secured; run apache2ctl configtest and then press [Enter] to continue..." </dev/tty
             systemctl restart apache2 || warn "Apache service restart failed."
@@ -513,13 +524,13 @@ EOF
 anonymous_enable=no
 chroot_local_user=yes
 EOF
-            echo "The FTP configuration lines have been saved to /tmp/ftpconfig.txt"
+            log "The FTP configuration lines have been saved to /tmp/ftpconfig.txt"
             read -r -p "Add the FTP config to /etc/vsftpd.conf, then press [Enter] to continue..." </dev/tty
             systemctl restart vsftpd || warn "vsftpd restart failed."
             ;;
         M)
-            echo "Securing MySQL!"
-            read -r -p "In another terminal, run mysql_secure_installation as root. Press [Enter] to continue..." </dev/tty
+            log "Securing MySQL!"
+            read -r -p "In another terminal, run mysql_secure_installation as root. After, press [Enter] to continue..." </dev/tty
             cat > /tmp/mysqlconfig.txt <<'EOF'
 Under [mysqld] add:
 bind-address = 127.0.0.1
@@ -528,7 +539,7 @@ symbolic-links = 0
 skip-name-resolve
 require_secure_transport = ON
 EOF
-            echo "MySQL config guidance saved to /tmp/mysqlconfig.txt"
+            log "MySQL config guidance saved to /tmp/mysqlconfig.txt"
             read -r -p "Apply those changes to /etc/mysql/my.cnf, validate with mysqld --validate-config, then press [Enter] to continue..." </dev/tty
             chown root:root /etc/mysql/my.cnf 2>/dev/null || true
             chmod 0644 /etc/mysql/my.cnf 2>/dev/null || true
@@ -536,16 +547,16 @@ EOF
             systemctl restart mariadb || true
             ;;
         N)
-            echo "If a service is listed in the README but is not addressed here, research it manually."
-			echo "If the computer is running a service not specified in the README, use systemctl stop pkg"
+            log "If a service is listed in the README but is not addressed here, research it manually."
+			log "If the computer is running a service not specified in the README, use systemctl stop pkg"
             ;;
 		P)
-			echo "PHP security depends on what process it runs under. To secure it, googling is necessary."
-			echo "To identify what process it runs under, look for these!"
-			echo "Normally the PHP process will look like php-form or php-fpmX.X" 
-			echo "But, if Apache is running, PHP will not be in the process list, because it runs under the apache2 process."
-			echo "Also, if the computer is running Nginx, PHP's name will be php-fpm."
-			echo "To find these, use ps aux|grep php/apache2/httpd to find it!"
+			log "PHP security depends on what process it runs under. To secure it, googling is necessary."
+			log "To identify what process it runs under, look for these!"
+			log "Normally the PHP process will look like php-form or php-fpmX.X" 
+			log "But, if Apache is running, PHP will not be in the process list, because it runs under the apache2 process."
+			log "Also, if the computer is running Nginx, PHP's name will be php-fpm."
+			log "To find these, use ps aux|grep php/apache2/httpd to find it!"
 			;;
 			
         *)
@@ -558,14 +569,15 @@ EOF
 prohibited_pkgs() {
 	local pkg="hollywood"
 	apt list --installed|grep -v '\<lib' > installed_pkgs.txt
-	echo "Removing bad packages!"
+	log "Removing bad packages!"
 	apt-get purge john hydra transmission-gtk warpinator ophcrack doona xprobe squid 
 	apt-get autoremove
-	echo "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
-	echo "If you want to remove other software, the Mint Store is a good place to start!"
+	log "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
+	log "If you want to remove other software, the Mint Store is a good place to start!"
 	while [[ $pkg != "none" ]]; do
-		echo "Current installed packages are in installed_pkgs.txt. If you can't find a package but you know it is installed, google it.
-		Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
+		echo "Installed packages are in installed_pkgs.txt. THIS FILE DOESN'T UPDATE!"
+		echo "If you can't find a package but you know it is installed, google it."
+		echo "Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
 		read -r -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
 		echo "Removing $pkg!"
 		apt-get purge "$pkg"
@@ -574,32 +586,32 @@ prohibited_pkgs() {
         apt-get autoremove
 	fi
 	apt-get autoclean
-	
 }
 	
 unauth_files() {
-    echo "Finding bad files!"
+    log "Finding bad files!"
 	locate "*.mp3" "*.ogg" "*.wav" ".tar.*" "*.zip" "*backdoor*" "*.mov" "*.mp4" "*.php"  "*.jpg" "*.jpeg" > "${HOME_DIR}"/unauthfiles.txt
     ls /usr/games > unauthfiles.txt
-    read -r -p "Unauthorized files have been added to unauthfiles.txt. Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
+    log "Unauthorized files have been added to unauthfiles.txt."
+	read -r -p "Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 }
 
 pwd_pol() {
-	echo "Adding a password complexity policy!"
+	log "Adding a password complexity policy!"
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
 	
 }
 
 virus() {
-	echo "Scanning for viruses!"
+	log "Scanning for viruses!"
 	freshclam
     clamscan -r -i -l virusscan.txt &
-    echo "Virus scan is currently running and will output to virus.txt."
-	echo "Updating the rootkit hunter."
+    log "Virus scan is currently running and will output to virus.txt."
+	log "Updating the rootkit hunter."
 	rkhunter --update
-	echo "Hunting for rootkits and other various malware!"
+	log "Hunting for rootkits and other various malware!"
 	rkhunter -c 
-	echo "Checking for common privelege escalation vectors!"
+	log "Checking for common privelege escalation vectors!"
 	unix-privesc-check standard
 }
 
@@ -613,19 +625,19 @@ reboot_machine() {
 }
 
 final_checks() {
-    echo "Some unauthorized services may be running. Use stacer to review processes."
-    echo "Review the system for any services not covered by this script."
-    echo "Make sure to take a look at virusscan.txt to see if there are any viruses."
-    echo "MAKE SURE TO TURN ON AUTOUPDATE!"
-	echo "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
-	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
+    log "Some unauthorized services may be running. Use stacer to review processes."
+    log "Review the system for any services not covered by this script."
+    log "Make sure to take a look at virusscan.txt to see if there are any viruses."
+    log "MAKE SURE TO TURN ON AUTOUPDATE!"
+	log "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
+	log "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
 	
 }
 cleanup() {
-	echo "Cleaning up!"
-	rm /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
-	echo "Removing unneeded software and dependencies installed by the script!"
-	apt-get remove byobu nmap unix-privesc-check rkhunter stacer fastfetch pwgen -y > /dev/null
+	log "Cleaning up!"
+	rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
+	log "Removing unneeded software and dependencies installed by the script!"
+	apt-get remove byobu nmap unix-privesc-check rkhunter stacer pwgen -y > /dev/null
 	apt-get autoremove -y > /dev/null
 	apt-get autoclean
 }
@@ -685,7 +697,7 @@ exit_script(){
 	clear
 	echo "See you soon!"
 	fastfetch --structure logo --logo kali
-	echo "H@CK TH3 PL@N3T!"
+	echo "Script written by Colin and the rest of BWHS-3 CP19 team"
 	exit 0
 }
 
@@ -694,7 +706,7 @@ show_menu(){
 
 echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 fastfetch --structure logo --logo linuxmint
-echo "~~~~~~~~~~~~~~~~Written by: Colin Brunner and the BWHS-3 CP19 team~~~~~~~~"
+echo "~~~~~~~~~~~~~~~~Written by: Colin and the rest of BWHS-3 CP19 team~~~~~~~~"
 echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 echo " "
 echo "1) Forensics Questions								2) Update the machine."
