@@ -7,6 +7,7 @@ readonly LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
 
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || echo root)}"
 HOME_DIR="/home/${TARGET_USER}"
+local run_all=0
 
 log() {
     printf '%s %s\n' "$(date '+%F %T')" "$*" | tee -a "${LOG_FILE}" >&2
@@ -682,7 +683,7 @@ cleanup() {
 		menu
 }
 kitchen_sink() {
-    local run_all=1
+    ${run_all}=1
 	forensics
 	read -r -p "Next up is updating the computer! Press [Enter] to continue... "
 	update
