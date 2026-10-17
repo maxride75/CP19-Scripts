@@ -7,7 +7,7 @@ readonly LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
 
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || echo root)}"
 HOME_DIR="/home/${TARGET_USER}"
-local run_all=0
+RUN_ALL=0
 
 log() {
     printf '%s %s\n' "$(date '+%F %T')" "$*" | tee -a "${LOG_FILE}" >&2
@@ -281,7 +281,7 @@ check_and_manage_users() {
 	fi
 	
 	
-	awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > ${HOME_DIR}/hiddenuser.txt
+	awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > "${HOME_DIR}"/hiddenuser.txt
 	if [[ -f "hiddenuser.txt" ]]; then
 		echo "These users have a UID that is less than 1000, meaning they are hidden"
     	cat hiddenuser.txt
@@ -710,7 +710,7 @@ cleanup() {
 	fi
 }
 kitchen_sink() {
-    ${run_all}=1
+    $RUN_ALL=1
 	forensics
 	read -r -p "Next up is updating the computer! Press [Enter] to continue... "
 	update
@@ -832,7 +832,7 @@ read_options(){
 		25) reboot_machine;;
 		26) kitchen_sink;;
 		27) easter_egg;;
-		28) exit_script
+		28) exit_script;;
 		*) echo "Invalid Option."
 		;;
 	esac
@@ -848,7 +848,7 @@ menu() {
 
 main() {
     require_root
-	inet_check
+	#inet_check
 	apt-get install fastfetch -y > /dev/null &
 	prerequisites
 	
