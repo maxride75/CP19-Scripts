@@ -129,6 +129,7 @@ forensics() {
     fi
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 update() {
@@ -143,6 +144,7 @@ update() {
     fi
     if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 install_packages() {
 	log "Installing required packages..."
@@ -150,6 +152,7 @@ install_packages() {
     apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check gedit >/dev/null || warn "Packages were not installed successfully!"
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 configure_firewall() {
@@ -158,6 +161,7 @@ configure_firewall() {
 	log "Firewall has been enabled!"
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 configure_pam() {
@@ -190,6 +194,7 @@ required pam_faillock.so authsucc"
     read -r -p "Press [Enter] to continue once pam-auth-update is done..." </dev/tty
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 	
 }
 
@@ -226,6 +231,7 @@ check_and_manage_admins() {
     fi
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 check_and_manage_users() {
@@ -281,9 +287,11 @@ check_and_manage_users() {
     	cat hiddenuser.txt
     	echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
 	fi
-}
-if [[ ${run_all} != 1 ]]; then
+	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
+}
+
 manage_local_users_and_groups() {
     log "Additional user/group management..."
 
@@ -336,6 +344,7 @@ manage_local_users_and_groups() {
     done
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 adminpwd() {
     if [[ ! -f "${HOME_DIR}/admins.txt" ]]; then
@@ -351,6 +360,7 @@ adminpwd() {
     done < admins.txt
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 userpwd() {
@@ -367,6 +377,7 @@ userpwd() {
     done < users.txt
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 configure_login_defs() {
     log "Configuring login.defs password policy..."
@@ -378,6 +389,7 @@ configure_login_defs() {
     log "/etc/login.defs updated successfully."
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 misc_sec() {
@@ -417,6 +429,7 @@ misc_sec() {
 	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 configure_ssh() {
@@ -452,6 +465,7 @@ configure_ssh() {
     systemctl reload ssh || warn "Failed to reload SSH service."
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 root_lock() {
@@ -459,6 +473,7 @@ root_lock() {
 	passwd -l root || warn "Failed to lock root account."
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 	
 }
 sysrq() {
@@ -467,6 +482,7 @@ sysrq() {
 	sysctl --system || warn "sysctl --system returned a non-zero exit status."
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 	
 }
 reperm_files() {
@@ -479,6 +495,7 @@ reperm_files() {
     cd "${HOME_DIR}"
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 	
 }
 
@@ -487,6 +504,7 @@ easter_egg() {
    xterm -hold -e 'curl ascii.live/rick' &
    if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 nmap_machine() {
@@ -497,6 +515,7 @@ nmap_machine() {
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 configure_web_services() {
     local choice
@@ -592,6 +611,7 @@ EOF
     esac
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 prohibited_pkgs() {
@@ -616,6 +636,7 @@ prohibited_pkgs() {
 	apt-get autoclean
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 	
 unauth_files() {
@@ -626,6 +647,7 @@ unauth_files() {
 	read -r -p "Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 pwd_pol() {
@@ -633,6 +655,7 @@ pwd_pol() {
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 virus() {
@@ -648,6 +671,7 @@ virus() {
 	unix-privesc-check standard
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 reboot_machine() {
@@ -659,6 +683,7 @@ reboot_machine() {
 	fi
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 
 final_checks() {
@@ -670,6 +695,7 @@ final_checks() {
 	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 	
 }
 cleanup() {
@@ -681,6 +707,7 @@ cleanup() {
 	apt-get autoclean
 	if [[ ${run_all} != 1 ]]; then
 		menu
+	fi
 }
 kitchen_sink() {
     ${run_all}=1
@@ -768,9 +795,9 @@ echo "15) Configure any web services						16) Disable sysrq"
 echo "17) Repermission any important files					18) Port scan the machine and send to a file"
 echo "19) Find and remove any unauthorized files			20) Uninstall any unauthorized packages"
 echo "21) Configure security settings				    	22) Virus scan"
-echo "23) Final checks										24) Reboot"
-echo "25) Full harden										26) Secret Easter Egg"
-echo "27) Exit"
+echo "23) Cleanup											24) Final checks"
+echo "25) Reboot											26) Full Machine Harden"
+echo "27) Secret Easter Egg									28) Exit"
 }
 
 read_options(){
@@ -800,11 +827,12 @@ read_options(){
 		20) prohibited_pkgs;;
 		21) misc_sec;;
 		22) virus;;
-		23) final_checks;;
-		24) reboot_machine;;
-		25) kitchen_sink;;
-		26) easter_egg;;
-		27) exit_script;;
+		23) cleanup;;
+		24) final_checks;;
+		25) reboot_machine;;
+		26) kitchen_sink;;
+		27) easter_egg;;
+		28) exit_script
 		*) echo "Invalid Option."
 		;;
 	esac
