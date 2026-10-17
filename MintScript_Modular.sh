@@ -127,7 +127,7 @@ forensics() {
 		and if you don't get points, try the other IP from the pcap file." >> forensics.txt
 		echo "Take a look at it if you need help!"
     fi
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -142,7 +142,7 @@ update() {
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
         log "Check for packages installed via Mint Store and uninstall anything that is not approved."
     fi
-    if [[ ${run_all} != 1 ]]; then
+    if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -150,7 +150,7 @@ install_packages() {
 	log "Installing required packages..."
     apt-get update -y >/dev/null
     apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check gedit >/dev/null || warn "Packages were not installed successfully!"
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -159,7 +159,7 @@ configure_firewall() {
 	log "Enabling UFW firewall..."
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
 	log "Firewall has been enabled!"
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -192,7 +192,7 @@ required pam_faillock.so authsucc"
 
     log "PAM modules have been created. Please enable them with pam-auth-update."
     read -r -p "Press [Enter] to continue once pam-auth-update is done..." </dev/tty
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 	
@@ -229,7 +229,7 @@ check_and_manage_admins() {
     else
         log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -287,7 +287,7 @@ check_and_manage_users() {
     	cat hiddenuser.txt
     	echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
 	fi
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -342,7 +342,7 @@ manage_local_users_and_groups() {
                 ;;
         esac
     done
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -358,7 +358,7 @@ adminpwd() {
             echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
     done < admins.txt
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -375,7 +375,7 @@ userpwd() {
             echo "$user:$(pwgen -sy 20 1)" | chpasswd
         fi
     done < users.txt
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -387,7 +387,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_MIN_DAYS" "20"
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     log "/etc/login.defs updated successfully."
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -427,7 +427,7 @@ misc_sec() {
 	set_config_value "/etc/sysctl.conf" "fs.protected_symlinks =" "1"
 
 	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -463,7 +463,7 @@ configure_ssh() {
 	set_config_value "${ssh_config}" "MaxAuthTries" "6"
 	log "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -471,7 +471,7 @@ configure_ssh() {
 root_lock() {
     log "Locking the root account!"
 	passwd -l root || warn "Failed to lock root account."
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 	
@@ -480,7 +480,7 @@ sysrq() {
 	echo "Disabling sysrq!"
 	set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
 	sysctl --system || warn "sysctl --system returned a non-zero exit status."
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 	
@@ -493,7 +493,7 @@ reperm_files() {
     chmod 600 shadow /boot/grub/grub.cfg ssh/sshd_config 
     chmod 644 passwd
     cd "${HOME_DIR}"
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 	
@@ -502,7 +502,7 @@ reperm_files() {
 easter_egg() {
    apt-get install xterm -y > /dev/null
    xterm -hold -e 'curl ascii.live/rick' &
-   if [[ ${run_all} != 1 ]]; then
+   if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -513,7 +513,7 @@ nmap_machine() {
 	nmap -sT -o "${HOME_DIR}"/nmap.txt localhost
 	echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
 	echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -609,7 +609,7 @@ EOF
             echo "Invalid response."
             ;;
     esac
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -634,7 +634,7 @@ prohibited_pkgs() {
         apt-get autoremove
 	fi
 	apt-get autoclean
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -645,7 +645,7 @@ unauth_files() {
     ls /usr/games > unauthfiles.txt
     log "Unauthorized files have been added to unauthfiles.txt."
 	read -r -p "Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -653,7 +653,7 @@ unauth_files() {
 pwd_pol() {
 	log "Adding a password complexity policy!"
 	sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -669,7 +669,7 @@ virus() {
 	rkhunter -c 
 	log "Checking for common privelege escalation vectors!"
 	unix-privesc-check standard
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -681,7 +681,7 @@ reboot_machine() {
 	else
 		echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
 	fi
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
@@ -693,7 +693,7 @@ final_checks() {
     log "MAKE SURE TO TURN ON AUTOUPDATE!"
 	log "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
 	echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 	
@@ -705,12 +705,12 @@ cleanup() {
 	apt-get remove byobu nmap unix-privesc-check rkhunter stacer pwgen -y > /dev/null
 	apt-get autoremove -y > /dev/null
 	apt-get autoclean
-	if [[ ${run_all} != 1 ]]; then
+	if [[ ${RUN_ALL} != 1 ]]; then
 		menu
 	fi
 }
 kitchen_sink() {
-    $RUN_ALL=1
+    RUN_ALL=1
 	forensics
 	read -r -p "Next up is updating the computer! Press [Enter] to continue... "
 	update
