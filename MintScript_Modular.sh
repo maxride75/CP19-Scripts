@@ -3,10 +3,10 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 
 readonly SCRIPT_NAME="${0##*/}"
-readonly LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
 
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || echo root)}"
 HOME_DIR="/home/${TARGET_USER}"
+readonly LOG_FILE="${HOME_DIR}/${SCRIPT_NAME%.sh}.log"
 RUN_ALL=0
 
 log() {
@@ -101,7 +101,7 @@ prerequisites() {
 	read -r -p "3. Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
 	read -r -p "4. If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
 	read -r -p "5. Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named
-	user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
+user.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
 	read -r -p "If you finished all of those, great! Press [Enter] to continue! "
 	
 }
@@ -133,14 +133,13 @@ forensics() {
 }
 
 update() {
-    if prompt_yes_no "Does the README specify not to update packages?"; then
-        echo "Update manually as required by the README."
-    else
+    if prompt_yes_no "Would you like to update the machine?"; then
         log "Proceeding with package updates..."
         apt-get update -y >/dev/null || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
-        log "Check for packages installed via Mint Store and uninstall anything that is not approved."
+    else
+		echo "Update manually as required by the README."    
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
 		menu
@@ -836,7 +835,7 @@ read_options(){
 		*) echo "Invalid Option."
 		;;
 	esac
-	}
+}
 
 
 menu() {
@@ -855,7 +854,6 @@ main() {
     mkdir -p "${LOG_FILE%/*}"
     touch "${LOG_FILE}"
 	menu
-	
 }
 
 main "$@"
