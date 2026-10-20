@@ -821,7 +821,7 @@ kitchen_sink() {
 exit_script(){
     clear
     echo "See you soon!"
-    if command -v fastfetch >/dev/null 2>&1; then
+    if dpkg -s fastfetch >/dev/null; then
         fastfetch --structure logo --logo kali || true
     fi
     echo "Script written by Colin and the rest of BWHS-3 CP19 team"
@@ -838,7 +838,7 @@ inet_check(){
 
 show_menu(){
     echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    if command -v fastfetch >/dev/null 2>&1; then
+    if dpkg -s fastfetch >/dev/null; then
         fastfetch --structure logo --logo linuxmint || true
     fi
     echo "~~~~~~~~~~~~~~~~Written by: Colin and the rest of BWHS-3 CP19 team~~~~~~~~"
@@ -910,9 +910,8 @@ main() {
     require_root
     inet_check
     # install fastfetch synchronously so show_menu can use it if present
-    if ! command -v fastfetch >/dev/null 2>&1; then
-        apt-get update >/dev/null || true
-        apt-get install -y fastfetch >/dev/null 2>&1 || true
+    if ! dpkg -s "package-name" >/dev/null 2>&1; then
+    apt-get install fastfetch
     fi
     prerequisites
 
