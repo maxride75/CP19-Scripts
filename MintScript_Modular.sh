@@ -10,7 +10,7 @@ readonly LOG_FILE="${HOME_DIR}/${SCRIPT_NAME%.sh}.log"
 RUN_ALL=0
 
 log() {
-    printf '%s %s\n' "$(date '+%F %T')" "$*" | tee -a "${LOG_FILE}" >&2
+    printf '%s %s\n' "$(date '+%D %T')" "$*" | tee -a "${LOG_FILE}" >&2
 }
 
 warn() {
@@ -134,7 +134,7 @@ Take a look at it if you need help!
 EOF
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -149,7 +149,7 @@ update() {
         echo "Update manually as required by the README."    
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -163,7 +163,7 @@ install_packages() {
     chmod +x upc.sh
     cd ${HOME_DIR}
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -177,7 +177,7 @@ configure_firewall() {
         warn "Please install ufw before configuring the firewall!"
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -211,7 +211,7 @@ required pam_faillock.so authsucc"
     log "PAM modules have been created. Please enable them with pam-auth-update."
     read -r -p "Press [Enter] to continue once pam-auth-update is done..." </dev/tty
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -248,7 +248,7 @@ check_and_manage_admins() {
         log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -308,7 +308,7 @@ check_and_manage_users() {
         echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -367,10 +367,11 @@ manage_local_users_and_groups() {
         esac
     done
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
+
 adminpwd() {
     if dpkg -s "pwgen" >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
@@ -387,7 +388,7 @@ adminpwd() {
         fi
     done < "${HOME_DIR}/admins.txt"
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -408,10 +409,11 @@ userpwd() {
         fi
     done < "${HOME_DIR}/users.txt"
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
+
 configure_login_defs() {
     log "Configuring login.defs password policy..."
     local config_doc="/etc/login.defs"
@@ -421,7 +423,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     log "/etc/login.defs updated successfully."
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -461,7 +463,7 @@ misc_sec() {
 
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -497,7 +499,7 @@ configure_ssh() {
     log "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -506,21 +508,23 @@ root_lock() {
     log "Locking the root account!"
     passwd -l root || warn "Failed to lock root account."
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
 }
+
 sysrq() {
     echo "Disabling sysrq!"
     set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
         menu
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
     fi
 
 }
+
 reperm_files() {
     log "Making sure critical files are permissioned correctly!"
     cd /etc || warn "Unable to cd /etc"
@@ -536,7 +540,7 @@ reperm_files() {
     [[ -e passwd ]] && chmod 644 passwd
     cd "${HOME_DIR}" || true
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -559,10 +563,11 @@ nmap_machine() {
     echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
     echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
+
 configure_web_services() {
     local choice
     choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/Php/N)): " "X A F M N P")"
@@ -655,7 +660,7 @@ EOF
             ;;
     esac
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -686,7 +691,7 @@ prohibited_pkgs() {
     fi
     apt-get autoclean -y || true
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -699,7 +704,7 @@ unauth_files() {
     log "Unauthorized files have been added to ${HOME_DIR}/unauthfiles.txt."
     read -r -p "Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -708,18 +713,18 @@ pwd_pol() {
     log "Adding a password complexity policy!"
     sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
 
 virus() {
     log "Scanning for viruses!"
-    if dpkg -s "package-name" >/dev/null 2>&1; then
+    if dpkg -s "clamtk" >/dev/null 2>&1; then
     freshclam || warn "freshclam returned non-zero"
     clamscan -r -i -l "${HOME_DIR}/virusscan.txt" &
     log "Virus scan is currently running and will output to ${HOME_DIR}/virusscan.txt."
-    if dpkg -s "package-name" >/dev/null 2>&1; then
+    if dpkg -s "rkhunter" >/dev/null 2>&1; then
         log "Updating the rootkit hunter."
         rkhunter --update || warn "rkhunter update failed"
         log "Hunting for rootkits and other various malware!"
@@ -730,7 +735,7 @@ virus() {
         ./upc standard | tee "${HOME_DIR}"/upc.txt || warn "unix-privesc-check returned non-zero"
     cd "${HOME_DIR}"
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -742,7 +747,7 @@ reboot_machine() {
         echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -755,7 +760,7 @@ final_checks() {
     log "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -769,7 +774,7 @@ cleanup() {
     apt-get autoclean -y || true
     rm -rf "${HOME_DIR}"/unix-privesc-check
     if [[ ${RUN_ALL} != 1 ]]; then
-        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -919,7 +924,7 @@ main() {
     inet_check
     # install fastfetch synchronously so show_menu can use it if present
     if ! dpkg -s "fastfetch" >/dev/null 2>&1; then
-    apt-get install fastfetch
+    apt-get install fastfetch &
     fi
     prerequisites
 
