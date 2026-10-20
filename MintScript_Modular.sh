@@ -157,7 +157,11 @@ update() {
 install_packages() {
     log "Installing required packages..."
     apt-get update >/dev/null
-    apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check gedit >/dev/null || warn "Packages were not installed successfully!"
+    apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit >/dev/null || warn "Packages were not installed successfully!"
+    git clone https://github.com/pentestmonkey/unix-privesc-check
+    cd unix-privesc-check
+    chmod +x upc.sh
+    cd ${HOME_DIR}
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -714,7 +718,9 @@ virus() {
     log "Hunting for rootkits and other various malware!"
     rkhunter -c || warn "rkhunter check failed"
     log "Checking for common privelege escalation vectors!"
-    unix-privesc-check standard || warn "unix-privesc-check returned non-zero"
+    cd unix-privesc-check
+    ./upc standard | tee "${HOME_DIR}"/upc.txt || warn "unix-privesc-check returned non-zero"
+    cd "${HOME_DIR}"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -750,9 +756,10 @@ cleanup() {
     log "Cleaning up!"
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
     log "Removing unneeded software and dependencies installed by the script!"
-    apt-get remove -y byobu nmap unix-privesc-check rkhunter stacer pwgen > /dev/null || true
+    apt-get remove -y byobu nmap rkhunter stacer pwgen > /dev/null || true
     apt-get autoremove -y > /dev/null || true
     apt-get autoclean -y || true
+    rm -rf "${HOME_DIR}"/unix-privesc-check
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
