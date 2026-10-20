@@ -169,9 +169,13 @@ install_packages() {
 }
 
 configure_firewall() {
-    log "Enabling UFW firewall..."
-    ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
-    log "Firewall has been enabled!"
+    if dpkg -s "package-name" >/dev/null 2>&1; then
+        log "Enabling UFW firewall..."
+        ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
+        log "Firewall has been enabled!"
+    else
+        warn "Please install ufw before configuring the firewall!"
+    fi
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -231,16 +235,15 @@ check_and_manage_admins() {
     if [[ -s "${HOME_DIR}/maybebadadmins.txt" ]]; then
         echo "These are the potentially bad admins:"
         cat "${HOME_DIR}/maybebadadmins.txt"
-        if prompt_yes_no "Would you like to demote the suspect admins?"; then
-            while IFS= read -r admin; do
-                [[ -z "${admin}" ]] && continue
-                log "Demoting user: ${admin}"
-                deluser "${admin}" sudo adm -q || warn "Failed to demote ${admin}"
-            done < "${HOME_DIR}/maybebadadmins.txt"
+        while true; do 
+            read -r -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " adm
+            log "Demoting user: ${admin}"
+            deluser "${admin}" sudo adm -q || warn "Failed to demote ${admin}"
             echo "If a user was demoted, and shouldn't have been, check the log and promote them!"
-        else
-            log "Make sure to demote them for points!"
-        fi
+            if [[ "${pkg,,}" == "none" ]]; then
+                break
+            fi
+        done
     else
         log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
@@ -369,7 +372,7 @@ manage_local_users_and_groups() {
     fi
 }
 adminpwd() {
-    if ! command -v pwgen; then
+    if dpkg -s "pwgen" >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
         return 0
     if [[ ! -f "${HOME_DIR}/admins.txt" ]]; then
@@ -390,7 +393,7 @@ adminpwd() {
 }
 
 userpwd() {
-    if ! command -v pwgen; then
+    if dpkg -s "pwgen" >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
         return 0
     if [[ ! -f "${HOME_DIR}/users.txt" ]]; then
@@ -548,7 +551,9 @@ easter_egg() {
 }
 
 nmap_machine() {
-    apt-get install -y nmap >/dev/null
+    if ! dpkg -s "nmap" >/dev/null 2>&1; then
+        apt-get install -y nmap >/dev/null
+    fi
     log "Scanning ports!"
     nmap -sT -o "${HOME_DIR}/nmap.txt" localhost
     echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
@@ -710,16 +715,19 @@ pwd_pol() {
 
 virus() {
     log "Scanning for viruses!"
+    if dpkg -s "package-name" >/dev/null 2>&1; then
     freshclam || warn "freshclam returned non-zero"
     clamscan -r -i -l "${HOME_DIR}/virusscan.txt" &
     log "Virus scan is currently running and will output to ${HOME_DIR}/virusscan.txt."
-    log "Updating the rootkit hunter."
-    rkhunter --update || warn "rkhunter update failed"
-    log "Hunting for rootkits and other various malware!"
-    rkhunter -c || warn "rkhunter check failed"
-    log "Checking for common privelege escalation vectors!"
-    cd unix-privesc-check
-    ./upc standard | tee "${HOME_DIR}"/upc.txt || warn "unix-privesc-check returned non-zero"
+    if dpkg -s "package-name" >/dev/null 2>&1; then
+        log "Updating the rootkit hunter."
+        rkhunter --update || warn "rkhunter update failed"
+        log "Hunting for rootkits and other various malware!"
+        rkhunter -c || warn "rkhunter check failed"
+    if [[ -s ${HOME_DIR}/unix-privesc-check ]]; then
+        log "Checking for common privelege escalation vectors!"
+        cd unix-privesc-check
+        ./upc standard | tee "${HOME_DIR}"/upc.txt || warn "unix-privesc-check returned non-zero"
     cd "${HOME_DIR}"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
@@ -910,7 +918,7 @@ main() {
     require_root
     inet_check
     # install fastfetch synchronously so show_menu can use it if present
-    if ! dpkg -s "package-name" >/dev/null 2>&1; then
+    if ! dpkg -s "fastfetch" >/dev/null 2>&1; then
     apt-get install fastfetch
     fi
     prerequisites
