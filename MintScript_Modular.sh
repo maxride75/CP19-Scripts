@@ -134,6 +134,7 @@ Take a look at it if you need help!
 EOF
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -148,6 +149,7 @@ update() {
         echo "Update manually as required by the README."    
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -157,6 +159,7 @@ install_packages() {
     apt-get update >/dev/null
     apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter unix-privesc-check gedit >/dev/null || warn "Packages were not installed successfully!"
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -166,6 +169,7 @@ configure_firewall() {
     ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
     log "Firewall has been enabled!"
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -199,6 +203,7 @@ required pam_faillock.so authsucc"
     log "PAM modules have been created. Please enable them with pam-auth-update."
     read -r -p "Press [Enter] to continue once pam-auth-update is done..." </dev/tty
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -236,6 +241,7 @@ check_and_manage_admins() {
         log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -295,6 +301,7 @@ check_and_manage_users() {
         echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -338,6 +345,9 @@ manage_local_users_and_groups() {
                 log "User ${user_name} made."
                 passwd -E "${user_name}" || true
                 log "User ${user_name}'s password is set to expire when they login."
+                if prompt_yes_no "Should they be an admin?"; then
+                    useradd ${user_name} sudo adm
+                fi
                 break
                 ;;
             N)
@@ -350,10 +360,14 @@ manage_local_users_and_groups() {
         esac
     done
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
 adminpwd() {
+    if ! command -v pwgen; then
+        warn "pwgen not installed, please install!"
+        return 0
     if [[ ! -f "${HOME_DIR}/admins.txt" ]]; then
         warn "${HOME_DIR}/admins.txt not found. Create it with the approved admin list before continuing."
         return 0
@@ -366,11 +380,15 @@ adminpwd() {
         fi
     done < "${HOME_DIR}/admins.txt"
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
 
 userpwd() {
+    if ! command -v pwgen; then
+        warn "pwgen not installed, please install!"
+        return 0
     if [[ ! -f "${HOME_DIR}/users.txt" ]]; then
         warn "${HOME_DIR}/users.txt not found. Create it with the approved user list before continuing."
         return 0
@@ -383,6 +401,7 @@ userpwd() {
         fi
     done < "${HOME_DIR}/users.txt"
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -395,6 +414,7 @@ configure_login_defs() {
     set_config_value "${config_doc}" "PASS_WARN_AGE" "7"
     log "/etc/login.defs updated successfully."
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -412,7 +432,6 @@ misc_sec() {
     done < <(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
 
     log "All unhidden users' maximum password age (not yours) was set to 60 days."
-    read -r -p "Check for hidden users now and adjust them manually if needed. Press [Enter] to continue..." </dev/tty
     log "Changing sysctl parameters!"
 
     set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies =" "1"
@@ -435,6 +454,7 @@ misc_sec() {
 
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -470,6 +490,7 @@ configure_ssh() {
     log "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -478,6 +499,7 @@ root_lock() {
     log "Locking the root account!"
     passwd -l root || warn "Failed to lock root account."
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -485,9 +507,10 @@ root_lock() {
 sysrq() {
     echo "Disabling sysrq!"
     set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
-    sysctl --system || warn "sysctl --system returned a non-zero exit status."
+    sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
         menu
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
     fi
 
 }
@@ -506,6 +529,7 @@ reperm_files() {
     [[ -e passwd ]] && chmod 644 passwd
     cd "${HOME_DIR}" || true
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -526,6 +550,7 @@ nmap_machine() {
     echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
     echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -621,6 +646,7 @@ EOF
             ;;
     esac
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -634,7 +660,8 @@ prohibited_pkgs() {
     log "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
     log "If you want to remove other software, the Mint Store is a good place to start!"
     while true; do
-        echo "Installed packages are in ${HOME_DIR}/installed_pkgs.txt. THIS FILE DOESN'T UPDATE!"
+        apt list --installed | grep -v '\<lib' > "${HOME_DIR}/installed_pkgs.txt"
+        echo "Installed packages are in ${HOME_DIR}/installed_pkgs.txt."
         echo "If you can't find a package but you know it is installed, google it."
         echo "Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
         read -r -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
@@ -650,6 +677,7 @@ prohibited_pkgs() {
     fi
     apt-get autoclean -y || true
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -662,6 +690,7 @@ unauth_files() {
     log "Unauthorized files have been added to ${HOME_DIR}/unauthfiles.txt."
     read -r -p "Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -670,6 +699,7 @@ pwd_pol() {
     log "Adding a password complexity policy!"
     sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -686,6 +716,7 @@ virus() {
     log "Checking for common privelege escalation vectors!"
     unix-privesc-check standard || warn "unix-privesc-check returned non-zero"
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -697,6 +728,7 @@ reboot_machine() {
         echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -709,6 +741,7 @@ final_checks() {
     log "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 
@@ -721,6 +754,7 @@ cleanup() {
     apt-get autoremove -y > /dev/null || true
     apt-get autoclean -y || true
     if [[ ${RUN_ALL} != 1 ]]; then
+        read -r -p "Returning to menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
@@ -788,7 +822,7 @@ exit_script(){
 }
 
 inet_check(){
-    if ping -c 4 8.8.8.8 &> /dev/null; then
+    if ping -c 2 8.8.8.8 &> /dev/null; then
         log "You are connected to the internet!"
     else
         err "You are not connected to the internet! This script won't work!"
@@ -803,20 +837,20 @@ show_menu(){
     echo "~~~~~~~~~~~~~~~~Written by: Colin and the rest of BWHS-3 CP19 team~~~~~~~~"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     echo " "
-    echo "1) Forensics Questions\t\t\t\t\t\t2) Update the machine."
-    echo "3) Install required pkgs.\t\t\t\t\t4) Lock root account"
-    echo "5) Configure the firewall\t\t\t\t6) Demote unnauthorized admins"
-    echo "7) Delete unauthorized users\t\t\t8) Add a required user or group"
-    echo "9) Change all the admin passwords\t\t10) All users get passwords"
-    echo "11) Set the lockout policy.\t\t\t12) Set the password policy."
-    echo "13) Configure password age\t\t\t14) Configure SSH."
-    echo "15) Configure any web services\t\t\t16) Disable sysrq"
-    echo "17) Repermission any important files\t\t18) Port scan the machine and send to a file"
-    echo "19) Find and remove any unauthorized files\t20) Uninstall any unauthorized packages"
-    echo "21) Configure security settings\t\t22) Virus scan"
-    echo "23) Cleanup\t\t\t\t\t\t\t24) Final checks"
-    echo "25) Reboot\t\t\t\t\t\t\t26) Full Machine Harden"
-    echo "27) Secret Easter Egg\t\t\t\t\t28) Exit"
+    echo "1) Forensics Questions                           2) Update the machine."
+    echo "3) Install required pkgs.                        4) Lock root account"
+    echo "5) Configure the firewall                        6) Demote unnauthorized admins"
+    echo "7) Delete unauthorized users                     8) Add a required user or group"
+    echo "9) Change all the admin passwords               10) All users get passwords"
+    echo "11) Set the lockout policy.                     12) Set the password policy."
+    echo "13) Configure password age                      14) Configure SSH."
+    echo "15) Configure any web services                  16) Disable sysrq"
+    echo "17) Repermission any important files            18) Port scan the machine and send to a file"
+    echo "19) Find and remove any unauthorized files      20) Uninstall any unauthorized packages"
+    echo "21) Configure security settings                 22) Virus scan"
+    echo "23) Cleanup                                     24) Final checks"
+    echo "25) Reboot                                      26) Full Machine Harden"
+    echo "27) Secret Easter Egg                           28) Exit"
 }
 
 read_options(){
@@ -867,7 +901,7 @@ menu() {
 
 main() {
     require_root
-    #inet_check
+    inet_check
     # install fastfetch synchronously so show_menu can use it if present
     if ! command -v fastfetch >/dev/null 2>&1; then
         apt-get update >/dev/null || true
