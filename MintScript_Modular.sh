@@ -924,11 +924,13 @@ main() {
     inet_check
     # install fastfetch synchronously so show_menu can use it if present
     if ! dpkg -s "fastfetch" >/dev/null 2>&1; then
-    apt-get install fastfetch &
+    apt-get install fastfetch & || warn "apt did not install fastfetch successfully, features with fastfetch will not work!"
     fi
     prerequisites
 
+    rm -rf "${LOG_FILE%/*}"
     mkdir -p "${LOG_FILE%/*}"
+    rm -f "${LOG_FILE}"
     touch "${LOG_FILE}" || true
     menu
 }
