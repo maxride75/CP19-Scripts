@@ -921,8 +921,10 @@ menu() {
 
 main() {
     require_root
+    log "Checking for internet! DO NOT PRESS [Enter]!"
     inet_check
     # install fastfetch synchronously so show_menu can use it if present
+    log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s "fastfetch" >/dev/null 2>&1; then
     apt-get install fastfetch & || warn "apt did not install fastfetch successfully, features with fastfetch will not work!"
     fi
