@@ -376,6 +376,7 @@ adminpwd() {
     if dpkg -s "pwgen" >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
         return 0
+    fi
     if [[ ! -f "${HOME_DIR}/admins.txt" ]]; then
         warn "${HOME_DIR}/admins.txt not found. Create it with the approved admin list before continuing."
         return 0
@@ -397,6 +398,7 @@ userpwd() {
     if dpkg -s "pwgen" >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
         return 0
+    fi
     if [[ ! -f "${HOME_DIR}/users.txt" ]]; then
         warn "${HOME_DIR}/users.txt not found. Create it with the approved user list before continuing."
         return 0
