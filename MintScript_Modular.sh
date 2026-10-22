@@ -84,10 +84,22 @@ set_config_value() {
     local tmp
     tmp=$(mktemp) || { warn "Could not create temp file"; return 1; }
 
-    # Use awk with literal prefix match
-    awk -v k="$key" -v v="$value" 'BEGIN{len=length(k); found=0}
-        { if (substr($0,1,len)==k) { print k " " v; found=1 } else print $0 }
-        END { if (!found) print k " " v }' "${file_path}" > "${tmp}"
+    awk -v k="$key" -v v="$value" '
+        BEGIN { len = length(k); found = 0 }
+        {
+            if (substr($0, 1, len) == k) {
+                print k " " v
+                found = 1
+            } else {
+                print $0
+            }
+        }
+        END {
+            if (!found) {
+                print k " " v
+            }
+        }
+    ' "${file_path}" > "${tmp}"
 
     mv "${tmp}" "${file_path}"
 }
@@ -102,13 +114,12 @@ prerequisites() {
     echo "----------------------PREREQUISITES-------------------------"
     echo "This script will fail if these are not done correctly!!"
     echo "This part is step-by-step, and please press [Enter] after each step is done."
-    read -r -p "1. Launch Update Manager and make sure apt repos are set up correctly, e.g. they can connect!"
-    read -r -p "2. Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS!"
-    read -r -p "3. Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS!"
-    read -r -p "4. If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it."
-    read -r -p "5. Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named\nuser.txt, and group.txt. Place the name of the group you want to create in group.txt, and the users who should be in the group in user.txt."
-    read -r -p "If you finished all of those, great! Press [Enter] to continue! "
-
+    read -r -p "1. Launch Update Manager and make sure apt repos are set up correctly, e.g. they can connect! " </dev/tty
+    read -r -p "2. Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
+    read -r -p "3. Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
+    read -r -p "4. If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it. " </dev/tty
+    read -r -p "5. Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named user.txt and group.txt. " </dev/tty
+    read -r -p "If you finished all of those, great! Press [Enter] to continue! " </dev/tty
 }
 
 forensics() {
@@ -146,7 +157,7 @@ update() {
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
     else
-        echo "Update manually as required by the README."    
+        echo "Update manually as required by the README."
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -157,11 +168,16 @@ update() {
 install_packages() {
     log "Installing required packages..."
     apt-get update >/dev/null
-    apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit >/dev/null || warn "Packages were not installed successfully!"
-    git clone https://github.com/pentestmonkey/unix-privesc-check
-    cd unix-privesc-check
-    chmod +x upc.sh
-    cd ${HOME_DIR}
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit >/dev/null || warn "Packages were not installed successfully!"
+
+    if [[ ! -d "${HOME_DIR}/unix-privesc-check" ]]; then
+        git clone https://github.com/pentestmonkey/unix-privesc-check "${HOME_DIR}/unix-privesc-check" || warn "Failed to clone unix-privesc-check"
+    fi
+
+    if [[ -f "${HOME_DIR}/unix-privesc-check/upc.sh" ]]; then
+        chmod +x "${HOME_DIR}/unix-privesc-check/upc.sh" || true
+    fi
+
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -169,7 +185,7 @@ install_packages() {
 }
 
 configure_firewall() {
-    if dpkg -s "package-name" >/dev/null 2>&1; then
+    if dpkg -s ufw >/dev/null 2>&1; then
         log "Enabling UFW firewall..."
         ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
         log "Firewall has been enabled!"
@@ -214,7 +230,6 @@ required pam_faillock.so authsucc"
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
-
 }
 
 check_and_manage_admins() {
@@ -235,18 +250,21 @@ check_and_manage_admins() {
     if [[ -s "${HOME_DIR}/maybebadadmins.txt" ]]; then
         echo "These are the potentially bad admins:"
         cat "${HOME_DIR}/maybebadadmins.txt"
-        while true; do 
-            read -r -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " adm
-            log "Demoting user: ${admin}"
-            deluser "${admin}" sudo adm -q || warn "Failed to demote ${admin}"
-            echo "If a user was demoted, and shouldn't have been, check the log and promote them!"
-            if [[ "${pkg,,}" == "none" ]]; then
+
+        while true; do
+            read -r -p "If you need to demote a user, type the username here. If not, type none: " adm
+            [[ -n "${adm}" ]] || continue
+            if [[ "${adm,,}" == "none" ]]; then
                 break
             fi
+            log "Demoting user: ${adm}"
+            deluser "${adm}" sudo adm -q || warn "Failed to demote ${adm}"
+            echo "If a user was demoted and shouldn't have been, check the log and promote them!"
         done
     else
         log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them!"
     fi
+
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -278,13 +296,12 @@ check_and_manage_users() {
                 log "Removing user: ${user}"
                 userdel -r "${user}" || warn "Failed to remove ${user}"
             done < "${HOME_DIR}/maybebadusers.txt"
-            echo "If a user was demoted, and shouldn't have been, check the log and promote them!"
+            echo "If a user was demoted and shouldn't have been, check the log and promote them!"
         else
             echo "Make sure to delete them for points!"
         fi
-
     else
-        log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them, after the script is done!"
+        log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them after the script is done!"
     fi
 
     awk -F: '$3 == 0 {print $1}' /etc/passwd | grep -v '^root$' > "${HOME_DIR}/uid0.txt"
@@ -353,7 +370,7 @@ manage_local_users_and_groups() {
                 passwd -E "${user_name}" || true
                 log "User ${user_name}'s password is set to expire when they login."
                 if prompt_yes_no "Should they be an admin?"; then
-                    useradd ${user_name} sudo adm
+                    usermod -aG sudo,adm "${user_name}" || warn "Failed to add ${user_name} to sudo and adm groups"
                 fi
                 break
                 ;;
@@ -366,6 +383,7 @@ manage_local_users_and_groups() {
                 ;;
         esac
     done
+
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -373,7 +391,7 @@ manage_local_users_and_groups() {
 }
 
 adminpwd() {
-    if dpkg -s "pwgen" >/dev/null 2>&1; then
+    if ! dpkg -s pwgen >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
         return 0
     fi
@@ -395,7 +413,7 @@ adminpwd() {
 }
 
 userpwd() {
-    if dpkg -s "pwgen" >/dev/null 2>&1; then
+    if ! dpkg -s pwgen >/dev/null 2>&1; then
         warn "pwgen not installed, please install!"
         return 0
     fi
@@ -445,23 +463,23 @@ misc_sec() {
     log "All unhidden users' maximum password age (not yours) was set to 60 days."
     log "Changing sysctl parameters!"
 
-    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies =" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf/all.rp_filter =" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.rp_filter =" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_source_route =" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_source_route =" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_redirects =" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_redirects =" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.send_redirects =" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.log_martians =" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_echo_ignore_broadcasts =" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_ignore_bogus_error_responses =" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.ip_forward =" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_rfc1337 =" "1"
-    set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space =" "2"
-    set_config_value "/etc/sysctl.conf" "fs.suid_dumpable =" "0"
-    set_config_value "/etc/sysctl.conf" "fs.protected_hardlinks =" "1"
-    set_config_value "/etc/sysctl.conf" "fs.protected_symlinks =" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.rp_filter" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.rp_filter" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_source_route" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_source_route" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_redirects" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_redirects" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.send_redirects" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.log_martians" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_echo_ignore_broadcasts" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_ignore_bogus_error_responses" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.ip_forward" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_rfc1337" "1"
+    set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space" "2"
+    set_config_value "/etc/sysctl.conf" "fs.suid_dumpable" "0"
+    set_config_value "/etc/sysctl.conf" "fs.protected_hardlinks" "1"
+    set_config_value "/etc/sysctl.conf" "fs.protected_symlinks" "1"
 
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -478,8 +496,8 @@ configure_ssh() {
             return 0
         else
             log "Stopping and disabling sshd!"
-            systemctl stop ssh || warn "Stopping sshd returned a non-zero error code!" 
-            systemctl disable ssh  || warn "Disabling sshd returned a non-zero error code!"
+            systemctl stop ssh || warn "Stopping sshd returned a non-zero error code!"
+            systemctl disable ssh || warn "Disabling sshd returned a non-zero error code!"
             return 0
         fi
     fi
@@ -490,6 +508,7 @@ configure_ssh() {
         warn "No sshd_config file found. Skipping SSH hardening."
         return 0
     fi
+
     set_config_value "${ssh_config}" "PermitRootLogin" "no"
     set_config_value "${ssh_config}" "UsePAM" "yes"
     set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
@@ -498,6 +517,7 @@ configure_ssh() {
     set_config_value "${ssh_config}" "MaxAuthTries" "6"
     set_config_value "${ssh_config}" "PermitTunnel" "no"
     set_config_value "${ssh_config}" "GatewayPorts" "no"
+
     log "SSH has been secured, reloading SSH now..."
     systemctl reload ssh || warn "Failed to reload SSH service."
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -513,18 +533,16 @@ root_lock() {
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
-
 }
 
 sysrq() {
     echo "Disabling sysrq!"
-    set_config_value "/etc/sysctl.conf" "kernel.sysrq =" "0"
+    set_config_value "/etc/sysctl.conf" "kernel.sysrq" "0"
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
-        menu
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
+        menu
     fi
-
 }
 
 reperm_files() {
@@ -545,25 +563,25 @@ reperm_files() {
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
-
 }
 
 easter_egg() {
-   apt-get install -y xterm > /dev/null
-   xterm -hold -e 'curl ascii.live/rick' &
-   if [[ ${RUN_ALL} != 1 ]]; then
+    apt-get install -y xterm >/dev/null
+    xterm -hold -e 'curl ascii.live/rick' &
+    if [[ ${RUN_ALL} != 1 ]]; then
         menu
+        read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
     fi
 }
 
 nmap_machine() {
-    if ! dpkg -s "nmap" >/dev/null 2>&1; then
+    if ! dpkg -s nmap >/dev/null 2>&1; then
         apt-get install -y nmap >/dev/null
     fi
     log "Scanning ports!"
-    nmap -sT -o "${HOME_DIR}/nmap.txt" localhost
-    echo "This machine's ports have been scanned, ouput is in ${HOME_DIR}/nmap.txt"
-    echo "Take a look, more information can be found at speedguide.net or via ss -tlnp."
+    nmap -sT -oN "${HOME_DIR}/nmap.txt" localhost
+    echo "This machine's ports have been scanned, output is in ${HOME_DIR}/nmap.txt"
+    echo "Take a look; more information can be found at speedguide.net or via ss -tlnp."
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -572,7 +590,7 @@ nmap_machine() {
 
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/Php/N)): " "X A F M N P")"
+    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/Php/N): " "X A F M N P")"
 
     case "${choice}" in
         X)
@@ -652,7 +670,7 @@ EOF
         P)
             log "PHP security depends on what process it runs under. To secure it, googling is necessary."
             log "To identify what process it runs under, look for these!"
-            log "Normally the PHP process will look like php-form or php-fpmX.X" 
+            log "Normally the PHP process will look like php-form or php-fpmX.X"
             log "But, if Apache is running, PHP will not be in the process list, because it runs under the apache2 process."
             log "Also, if the computer is running Nginx, PHP's name will be php-fpm."
             log "To find these, use ps aux|grep php/apache2/httpd to find it!"
@@ -680,7 +698,7 @@ prohibited_pkgs() {
         echo "Installed packages are in ${HOME_DIR}/installed_pkgs.txt."
         echo "If you can't find a package but you know it is installed, google it."
         echo "Note: Please don't uninstall netcat if you are planning to use nmap because nmap requires netcat to function."
-        read -r -p  "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
+        read -r -p "If you need to uninstall something, type it in here. If you don't need to uninstall something, type none. " pkg
         [[ -z "${pkg}" ]] && continue
         if [[ "${pkg,,}" == "none" ]]; then
             break
@@ -688,7 +706,7 @@ prohibited_pkgs() {
         log "Removing ${pkg}!"
         apt-get purge -y "${pkg}" || warn "Failed to purge ${pkg}"
     done
-    if prompt_yes_no "Would you like to uninstalll uneeded dependencies?"; then
+    if prompt_yes_no "Would you like to uninstall unneeded dependencies?"; then
         apt-get autoremove -y || true
     fi
     apt-get autoclean -y || true
@@ -700,9 +718,24 @@ prohibited_pkgs() {
 
 unauth_files() {
     log "Finding bad files!"
-    # Use find instead of locate for more reliable results; suppress permission errors
-    find / -type f \( -iname '*.mp3' -o -iname '*.ogg' -o -iname '*.wav' -o -iname '*.tar.*' -o -iname '*.zip' -o -iname '*backdoor*' -o -iname '*.mov' -o -iname '*.mp4' -o -iname '*.php' -o -iname '*.jpg' -o -iname '*.jpeg' \) -print 2>/dev/null > "${HOME_DIR}/unauthfiles.txt" || true
-    ls /usr/games 2>/dev/null >> "${HOME_DIR}/unauthfiles.txt" || true
+    {
+        find / -xdev -type f \( \
+            -iname '*.mp3' -o \
+            -iname '*.ogg' -o \
+            -iname '*.wav' -o \
+            -iname '*.tar.*' -o \
+            -iname '*.zip' -o \
+            -iname '*backdoor*' -o \
+            -iname '*.mov' -o \
+            -iname '*.mp4' -o \
+            -iname '*.php' -o \
+            -iname '*.sh' -o \
+            -iname '*.pl' -o \
+            -iname '*.py' \
+        \) 2>/dev/null
+        ls /usr/games 2>/dev/null || true
+    } > "${HOME_DIR}/unauthfiles.txt" || true
+
     log "Unauthorized files have been added to ${HOME_DIR}/unauthfiles.txt."
     read -r -p "Take a look, delete anything bad, and then press [Enter] to continue..." </dev/tty
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -722,20 +755,33 @@ pwd_pol() {
 
 virus() {
     log "Scanning for viruses!"
-    if dpkg -s "clamtk" >/dev/null 2>&1; then
-    freshclam || warn "freshclam returned non-zero"
-    clamscan -r -i -l "${HOME_DIR}/virusscan.txt" &
-    log "Virus scan is currently running and will output to ${HOME_DIR}/virusscan.txt."
-    if dpkg -s "rkhunter" >/dev/null 2>&1; then
+    if dpkg -s clamav >/dev/null 2>&1; then
+        freshclam || warn "freshclam returned non-zero"
+        clamscan -r -i -l "${HOME_DIR}/virusscan.txt" || warn "clamscan returned non-zero"
+        log "Virus scan is currently running and output is stored in ${HOME_DIR}/virusscan.txt."
+    else
+        warn "ClamAV is not installed; skipping antivirus scan."
+    fi
+
+    if dpkg -s rkhunter >/dev/null 2>&1; then
         log "Updating the rootkit hunter."
         rkhunter --update || warn "rkhunter update failed"
         log "Hunting for rootkits and other various malware!"
         rkhunter -c || warn "rkhunter check failed"
-    if [[ -s ${HOME_DIR}/unix-privesc-check ]]; then
-        log "Checking for common privelege escalation vectors!"
-        cd unix-privesc-check
-        ./upc standard | tee "${HOME_DIR}"/upc.txt || warn "unix-privesc-check returned non-zero"
-    cd "${HOME_DIR}"
+    else
+        warn "rkhunter not installed; skipping rootkit scan."
+    fi
+
+    if [[ -d "${HOME_DIR}/unix-privesc-check" ]]; then
+        log "Checking for common privilege escalation vectors!"
+        (
+            cd "${HOME_DIR}/unix-privesc-check" || exit 1
+            ./upc standard | tee "${HOME_DIR}/upc.txt" || warn "unix-privesc-check returned non-zero"
+        )
+    else
+        warn "unix-privesc-check not found. Skipping privilege escalation scan."
+    fi
+
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -743,7 +789,7 @@ virus() {
 }
 
 reboot_machine() {
-    if prompt_yes_no "Would you like to reboot the machine to apply changes? \n\tWarning: This script will not keep running after reboot! (y/n): "; then
+    if prompt_yes_no "Would you like to reboot the machine to apply changes? Warning: This script will not keep running after reboot! (y/n): "; then
         shutdown -r now
     else
         echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
@@ -759,101 +805,102 @@ final_checks() {
     log "Review the system for any services not covered by this script."
     log "Make sure to take a look at ${HOME_DIR}/virusscan.txt to see if there are any viruses."
     log "MAKE SURE TO TURN ON AUTOUPDATE!"
-    log "Check autorun applications for anything that runs on boot, some may also be in /etc/init.d"
+    log "Check autorun applications for anything that runs on boot; some may also be in /etc/init.d"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
-
 }
+
 cleanup() {
     log "Cleaning up!"
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
     log "Removing unneeded software and dependencies installed by the script!"
-    apt-get remove -y byobu nmap rkhunter stacer pwgen > /dev/null || true
-    apt-get autoremove -y > /dev/null || true
+    apt-get remove -y byobu nmap rkhunter stacer pwgen >/dev/null || true
+    apt-get autoremove -y >/dev/null || true
     apt-get autoclean -y || true
-    rm -rf "${HOME_DIR}"/unix-privesc-check
+    rm -rf "${HOME_DIR}/unix-privesc-check"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
     fi
 }
+
 kitchen_sink() {
     RUN_ALL=1
     forensics
-    read -r -p "Next up is updating the computer! Press [Enter] to continue... "
+    read -r -p "Next up is updating the computer! Press [Enter] to continue... " </dev/tty
     update
-    read -r -p "Next up is installing required packages! Press [Enter] to continue... "
+    read -r -p "Next up is installing required packages! Press [Enter] to continue... " </dev/tty
     install_packages
-    read -r -p "Next up is locking the root account! Press [Enter] to continue... "
+    read -r -p "Next up is locking the root account! Press [Enter] to continue... " </dev/tty
     root_lock
-    read -r -p "Next up is configuring the firewall! Press [Enter] to continue... "
+    read -r -p "Next up is configuring the firewall! Press [Enter] to continue... " </dev/tty
     configure_firewall
-    read -r -p "Next up is managing admins! Press [Enter] to continue... "
+    read -r -p "Next up is managing admins! Press [Enter] to continue... " </dev/tty
     check_and_manage_admins
-    read -r -p "Next up is managing users! Press [Enter] to continue... "
+    read -r -p "Next up is managing users! Press [Enter] to continue... " </dev/tty
     check_and_manage_users
-    read -r -p "Next up is creating users and groups! Press [Enter] to continue... "
+    read -r -p "Next up is creating users and groups! Press [Enter] to continue... " </dev/tty
     manage_local_users_and_groups
-    read -r -p "Next up is changing insecure admin passwords! Press [Enter] to continue... "
+    read -r -p "Next up is changing insecure admin passwords! Press [Enter] to continue... " </dev/tty
     adminpwd
-    read -r -p "Next up is changing insecure user passwords! Press [Enter] to continue... "
+    read -r -p "Next up is changing insecure user passwords! Press [Enter] to continue... " </dev/tty
     userpwd
-    read -r -p "Next up is adding an account lockout policy! Press [Enter] to continue... "
+    read -r -p "Next up is adding an account lockout policy! Press [Enter] to continue... " </dev/tty
     configure_pam
-    read -r -p "Next up is making a password policy! Press [Enter] to continue... "
+    read -r -p "Next up is making a password policy! Press [Enter] to continue... " </dev/tty
     pwd_pol
-    read -r -p "Next up is configuring password ages! Press [Enter] to continue... "
+    read -r -p "Next up is configuring password ages! Press [Enter] to continue... " </dev/tty
     configure_login_defs
-    read -r -p "Next up is securing SSH! Press [Enter] to continue... "
+    read -r -p "Next up is securing SSH! Press [Enter] to continue... " </dev/tty
     configure_ssh
-    read -r -p "Next up is securing web and fileshare services! Press [Enter] to continue... "
+    read -r -p "Next up is securing web and fileshare services! Press [Enter] to continue... " </dev/tty
     configure_web_services
-    read -r -p "Next up is disabling SYSRQ! Press [Enter] to continue... "
+    read -r -p "Next up is disabling SYSRQ! Press [Enter] to continue... " </dev/tty
     sysrq
-    read -r -p "Next up is repermissioning files! Press [Enter] to continue... "
+    read -r -p "Next up is repermissioning files! Press [Enter] to continue... " </dev/tty
     reperm_files
-    read -r -p "Next up is scanning the machine for open ports! Press [Enter] to continue... "
+    read -r -p "Next up is scanning the machine for open ports! Press [Enter] to continue... " </dev/tty
     nmap_machine
-    read -r -p "Next up is finding unauthorized files! Press [Enter] to continue... "
+    read -r -p "Next up is finding unauthorized files! Press [Enter] to continue... " </dev/tty
     unauth_files
-    read -r -p "Next up is uninstalling bad packages! Press [Enter] to continue... "
+    read -r -p "Next up is uninstalling bad packages! Press [Enter] to continue... " </dev/tty
     prohibited_pkgs
-    read -r -p "Next up is making misc security configurations! Press [Enter] to continue... "
+    read -r -p "Next up is making misc security configurations! Press [Enter] to continue... " </dev/tty
     misc_sec
-    read -r -p "Next up is scanning for viruses! Press [Enter] to continue... "
+    read -r -p "Next up is scanning for viruses! Press [Enter] to continue... " </dev/tty
     virus
-    read -r -p "Next up is final checks! Press [Enter] to continue... "
+    read -r -p "Next up is final checks! Press [Enter] to continue... " </dev/tty
     final_checks
-    read -r -p "Next up is cleaning up! Press [Enter to continue... "
+    read -r -p "Next up is cleaning up! Press [Enter] to continue... " </dev/tty
     cleanup
-    read -r -p "And last up is rebooting the machine! Press [Enter] to continue... "
+    read -r -p "And last up is rebooting the machine! Press [Enter] to continue... " </dev/tty
     reboot_machine
 }
 
-exit_script(){
+exit_script() {
     clear
     echo "See you soon!"
-    if dpkg -s fastfetch >/dev/null; then
+    if dpkg -s fastfetch >/dev/null 2>&1; then
         fastfetch --structure logo --logo kali || true
     fi
     echo "Script written by Colin and the rest of BWHS-3 CP19 team"
     exit 0
 }
 
-inet_check(){
-    if ping -c 2 8.8.8.8 &> /dev/null; then
+inet_check() {
+    if ping -c 2 8.8.8.8 >/dev/null 2>&1; then
         log "You are connected to the internet!"
     else
         err "You are not connected to the internet! This script won't work!"
     fi
 }
 
-show_menu(){
+show_menu() {
     echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    if dpkg -s fastfetch >/dev/null; then
+    if dpkg -s fastfetch >/dev/null 2>&1; then
         fastfetch --structure logo --logo linuxmint || true
     fi
     echo "~~~~~~~~~~~~~~~~Written by: Colin and the rest of BWHS-3 CP19 team~~~~~~~~"
@@ -861,7 +908,7 @@ show_menu(){
     echo " "
     echo "1) Forensics Questions                           2) Update the machine."
     echo "3) Install required pkgs.                        4) Lock root account"
-    echo "5) Configure the firewall                        6) Demote unnauthorized admins"
+    echo "5) Configure the firewall                        6) Demote unauthorized admins"
     echo "7) Delete unauthorized users                     8) Add a required user or group"
     echo "9) Change all the admin passwords               10) All users get passwords"
     echo "11) Set the lockout policy.                     12) Set the password policy."
@@ -875,44 +922,41 @@ show_menu(){
     echo "27) Secret Easter Egg                           28) Exit"
 }
 
-read_options(){
-
+read_options() {
     read -r -p "What would you like to do? " choice
 
-    case $choice in
-        1) forensics;;
-        2) update;;
-        3) install_packages;;
-        4) root_lock;;
-        5) configure_firewall;;
-        6) check_and_manage_admins;;
-        7) check_and_manage_users;;
-        8) manage_local_users_and_groups;;
-        9) adminpwd;;
-        10) userpwd;;
-        11) configure_pam;;
-        12) pwd_pol;;
-        13) configure_login_defs;;
-        14) configure_ssh;;
-        15) configure_web_services;;
-        16) sysrq;;
-        17) reperm_files;;
-        18) nmap_machine;;
-        19) unauth_files;;
-        20) prohibited_pkgs;;
-        21) misc_sec;;
-        22) virus;;
-        23) cleanup;;
-        24) final_checks;;
-        25) reboot_machine;;
-        26) kitchen_sink;;
-        27) easter_egg;;
-        28) exit_script;;
-        *) echo "Invalid Option."
-        ;;
+    case "${choice}" in
+        1) forensics ;;
+        2) update ;;
+        3) install_packages ;;
+        4) root_lock ;;
+        5) configure_firewall ;;
+        6) check_and_manage_admins ;;
+        7) check_and_manage_users ;;
+        8) manage_local_users_and_groups ;;
+        9) adminpwd ;;
+        10) userpwd ;;
+        11) configure_pam ;;
+        12) pwd_pol ;;
+        13) configure_login_defs ;;
+        14) configure_ssh ;;
+        15) configure_web_services ;;
+        16) sysrq ;;
+        17) reperm_files ;;
+        18) nmap_machine ;;
+        19) unauth_files ;;
+        20) prohibited_pkgs ;;
+        21) misc_sec ;;
+        22) virus ;;
+        23) cleanup ;;
+        24) final_checks ;;
+        25) reboot_machine ;;
+        26) kitchen_sink ;;
+        27) easter_egg ;;
+        28) exit_script ;;
+        *) echo "Invalid option." ;;
     esac
 }
-
 
 menu() {
     clear
@@ -920,22 +964,21 @@ menu() {
     read_options
 }
 
-
 main() {
     require_root
     log "Checking for internet! DO NOT PRESS [Enter]!"
     inet_check
-    # install fastfetch synchronously so show_menu can use it if present
+
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
-    if ! dpkg -s "fastfetch" >/dev/null 2>&1; then
-    apt-get install fastfetch & || warn "apt did not install fastfetch successfully, features with fastfetch will not work!"
+    if ! dpkg -s fastfetch >/dev/null 2>&1; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || warn "apt did not install fastfetch successfully; features with fastfetch will not work!"
     fi
+
     prerequisites
 
-    rm -rf "${LOG_FILE%/*}"
-    mkdir -p "${LOG_FILE%/*}"
-    rm -f "${LOG_FILE}"
+    mkdir -p "$(dirname "${LOG_FILE}")"
     touch "${LOG_FILE}" || true
+
     menu
 }
 
