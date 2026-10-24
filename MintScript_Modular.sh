@@ -168,7 +168,7 @@ update() {
 install_packages() {
     log "Installing required packages..."
     apt-get update >/dev/null
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit >/dev/null || warn "Packages were not installed successfully!"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps >/dev/null || warn "Packages were not installed successfully!"
 
     if [[ ! -d "${HOME_DIR}/unix-privesc-check" ]]; then
         git clone https://github.com/pentestmonkey/unix-privesc-check "${HOME_DIR}/unix-privesc-check" || warn "Failed to clone unix-privesc-check"
@@ -367,7 +367,7 @@ manage_local_users_and_groups() {
                 log "Making user ${user_name}"
                 useradd -m -s /bin/bash "${user_name}" || warn "User ${user_name} may already exist."
                 log "User ${user_name} made."
-                passwd -E "${user_name}" || true
+                passwd --expire "${user_name}" || true
                 log "User ${user_name}'s password is set to expire when they login."
                 if prompt_yes_no "Should they be an admin?"; then
                     usermod -aG sudo,adm "${user_name}" || warn "Failed to add ${user_name} to sudo and adm groups"
@@ -679,6 +679,17 @@ EOF
             echo "Invalid response."
             ;;
     esac
+    for webfile in apache2,mysqld,mariadb,vsftpd,nginx; do
+        if pgrep ${webfile}; then
+            if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
+                systemctl stop ${webfile}
+                systemctl disable ${webfile}
+                apt purge ${webfile}
+            else
+                echo "Make sure to stop it for points!"
+            fi
+        fi
+    done
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -729,11 +740,9 @@ unauth_files() {
             -iname '*.mov' -o \
             -iname '*.mp4' -o \
             -iname '*.php' -o \
-            -iname '*.sh' -o \
             -iname '*.pl' -o \
-            -iname '*.py' \
         \) 2>/dev/null
-        ls /usr/games 2>/dev/null || true
+        ls /usr/games|grep gamemode* 2>/dev/null || true
     } > "${HOME_DIR}/unauthfiles.txt" || true
 
     log "Unauthorized files have been added to ${HOME_DIR}/unauthfiles.txt."
@@ -801,11 +810,12 @@ reboot_machine() {
 }
 
 final_checks() {
+    log "MAKE SURE TO TURN ON AUTOUPDATE!"
     log "Some unauthorized services may be running. Use stacer to review processes."
     log "Review the system for any services not covered by this script."
     log "Make sure to take a look at ${HOME_DIR}/virusscan.txt to see if there are any viruses."
-    log "MAKE SURE TO TURN ON AUTOUPDATE!"
     log "Check autorun applications for anything that runs on boot; some may also be in /etc/init.d"
+    log "Check the README to see if there are any other requirements to do for points!"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -820,7 +830,7 @@ cleanup() {
     apt-get remove -y byobu nmap rkhunter stacer pwgen >/dev/null || true
     apt-get autoremove -y >/dev/null || true
     apt-get autoclean -y || true
-    rm -rf "${HOME_DIR}/unix-privesc-check"
+    rm -rf "${HOME_DIR}"/unix-privesc-check
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
