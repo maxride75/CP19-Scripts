@@ -679,7 +679,7 @@ EOF
             echo "Invalid response."
             ;;
     esac
-    for webfile in apache2,mysqld,mariadb,vsftpd,nginx; do
+    for webfile in apache2 mysqld mariadb vsftpd nginx; do
         if pgrep ${webfile}; then
             if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
                 systemctl stop ${webfile}
@@ -742,7 +742,8 @@ unauth_files() {
             -iname '*.php' -o \
             -iname '*.pl' -o \
         \) 2>/dev/null
-        ls /usr/games|grep gamemode* 2>/dev/null || true
+        cd /usr/games
+        ls --ignore "*gamemode*"
     } > "${HOME_DIR}/unauthfiles.txt" || true
 
     log "Unauthorized files have been added to ${HOME_DIR}/unauthfiles.txt."
