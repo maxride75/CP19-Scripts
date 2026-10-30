@@ -1,8 +1,13 @@
 # CP19-Scripts
-Developing scripts for CP19
-Scripts are for Windows 11, Windows Server 2022, and Linux Mint at the moment
+Scripts for CyberPatriot 19
 
-Commits (after the initial burst of editing whenever I get to it) will be whenever I want/get new things
+Scripts include Windows 11, Windows Server, and Linux Mint.
 
-**WINDOWS SCRIPTS ARE EXPERIMENTAL AND UNTESTED, DO NOT RUN THIS AS ROOT ON YOUR MACHINE YET!**
-**LINUX MINT SCRIPT IS TESTED, BUT NOT FULLY!**
+The base of the Mint Script was written by me.
+The rest of the Mint Script, and all Windows Scripts written by Github Copilot.
+
+The Mint Script is tested, and can get points, but is not fully tested.
+
+Windows Scripts are not tested.
+
+**DEBIAN SCRIPT TO COME**
