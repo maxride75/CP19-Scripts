@@ -757,6 +757,7 @@ unauth_files() {
 pwd_pol() {
     log "Adding a password complexity policy!"
     sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+    sed -i 's/nullok//g' /etc/pam.d/common-auth
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
