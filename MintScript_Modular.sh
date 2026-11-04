@@ -791,6 +791,15 @@ virus() {
     else
         warn "unix-privesc-check not found. Skipping privilege escalation scan."
     fi
+    
+    #log "Installing Lynis, a comprehensive security auditing tool!"
+    #cd /usr/local
+    #git clone https://github.com/CISOfy/lynis >/dev/null||true
+    #if [[ -d lynis]]; then
+        #cd lynis
+        #./lynis audit system| tee ~/lynis.txt
+        #log "Lynis results have also been saved to lynis.txt, you can check it later."
+        #cd ${HOME_DIR}
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
