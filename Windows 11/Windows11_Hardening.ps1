@@ -61,22 +61,22 @@ function New-RandomPassword {
 }
 
 function Set-RandomPasswordForUser {
-    param([string]$Username)
+    param([string]${Username})
 
     $newPassword = New-RandomPassword -Length 16
     $securePassword = ConvertTo-SecureString -String $newPassword -AsPlainText -Force
 
     try {
-        $user = Get-LocalUser -Name $Username -ErrorAction Stop
+        $user = Get-LocalUser -Name ${Username} -ErrorAction Stop
         if ($user) {
-            $null = Set-LocalUser -Name $Username -Password $securePassword -ErrorAction Stop
-            Write-Log "Random password assigned to account: $Username" "SUCCESS"
+            $null = Set-LocalUser -Name ${Username} -Password $securePassword -ErrorAction Stop
+            Write-Log "Random password assigned to account: ${Username}" "SUCCESS"
             return $newPassword
         }
         return $null
     }
     catch {
-        Write-Log "Failed to assign random password to $Username: $($_.Exception.Message)" "ERROR"
+        Write-Log "Failed to assign random password to ${Username}: $($_.Exception.Message)" "ERROR"
         return $null
     }
 }
@@ -89,7 +89,7 @@ Write-Log "Starting Windows 11 hardening..." "INFO"
 function Users {
     Write-Log "Configuring user and admin management..." "INFO"
 
-    $scriptDir = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+    $scriptDir = Split-Path -Path $PSScriptRoot -Parent
     $usersFile = Join-Path -Path $scriptDir -ChildPath "users.txt"
     $adminsFile = Join-Path -Path $scriptDir -ChildPath "admins.txt"
 
@@ -101,7 +101,7 @@ function Users {
         $allowedUsers = Load-UserList -FilePath $usersFile
         $allowedAdmins = Load-UserList -FilePath $adminsFile
         $localUsers = Get-LocalUser -ErrorAction SilentlyContinue
-        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\\')[-1]
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name.Split('\')[-1]
 
         Write-Log "Loaded $($allowedUsers.Count) allowed users" "INFO"
         Write-Log "Loaded $($allowedAdmins.Count) allowed admins" "INFO"
