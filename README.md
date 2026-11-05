@@ -10,4 +10,4 @@ The Mint Script is tested, and can get points, but is not fully tested.
 
 Windows Scripts are not tested.
 
-**DEBIAN SCRIPT TO COME**
+Debian script has arrived, with about the same content that Mint has.
