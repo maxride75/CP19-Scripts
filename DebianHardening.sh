@@ -152,7 +152,14 @@ EOF
 
 update() {
     if prompt_yes_no "Would you like to update the machine?"; then
-        log "Proceeding with package updates..."
+        log "Add the lines in source.txt to /etc/apt/sources.list"
+		cat > source.txt << 'EOF'
+deb http://debian.org bookworm main
+deb http://debian.org bookworm-security main
+deb http://debian.org bookworm-updates main
+EOF
+		read -r -p "Press [Enter] to continue once ready... "
+		log "Proceeding with package updates..."
         apt-get update >/dev/null || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
@@ -167,7 +174,6 @@ update() {
 
 install_packages() {
     log "Installing required packages..."
-    apt-get update >/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps >/dev/null || warn "Packages were not installed successfully!"
 
     if [[ ! -d "${HOME_DIR}/unix-privesc-check" ]]; then
