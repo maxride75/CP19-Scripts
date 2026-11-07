@@ -154,9 +154,9 @@ update() {
     if prompt_yes_no "Would you like to update the machine?"; then
         log "Add the lines in source.txt to /etc/apt/sources.list"
 		cat > source.txt << 'EOF'
-deb http://debian.org bookworm main
-deb http://debian.org bookworm-security main
-deb http://debian.org bookworm-updates main
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
 EOF
 		read -r -p "Press [Enter] to continue once ready... "
 		log "Proceeding with package updates..."
@@ -300,7 +300,8 @@ check_and_manage_users() {
             while IFS= read -r user; do
                 [[ -z "${user}" ]] && continue
                 log "Removing user: ${user}"
-                userdel -r "${user}" || warn "Failed to remove ${user}"
+                userdel -r "${user}" || true
+				echo "If a user's directory was not found, that is okay."
             done < "${HOME_DIR}/maybebadusers.txt"
             echo "If a user was deleted and shouldn't have been, check the log and re-add them!"
         else
@@ -809,6 +810,7 @@ virus() {
     #git clone https://github.com/CISOfy/lynis >/dev/null||true
     #if [[ -d lynis]]; then
         #cd lynis
+		#chmod +x lynis
         #./lynis audit system| tee ~/lynis.txt
         #log "Lynis results have also been saved to lynis.txt, you can check it later."
         #cd ${HOME_DIR}
