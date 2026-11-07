@@ -163,6 +163,11 @@ EOF
         apt-get update >/dev/null || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+		log "Enabling auto update!"
+		local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
+		touch "${auto_upgrades}"||true
+		set_config_value "${auto_upgrades}" "APT::Periodic::Update-Package-Lists" '"1";'
+		set_config_value "${auto_upgrades}" "APT::Periodic::Unattended-Upgrade" '"1";'
     else
         echo "Update manually as required by the README."
     fi
@@ -175,14 +180,6 @@ EOF
 install_packages() {
     log "Installing required packages..."
     DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps >/dev/null || warn "Packages were not installed successfully!"
-
-    if [[ ! -d "${HOME_DIR}/unix-privesc-check" ]]; then
-        git clone https://github.com/pentestmonkey/unix-privesc-check "${HOME_DIR}/unix-privesc-check" || warn "Failed to clone unix-privesc-check"
-    fi
-
-    if [[ -f "${HOME_DIR}/unix-privesc-check/upc.sh" ]]; then
-        chmod +x "${HOME_DIR}/unix-privesc-check/upc.sh" || true
-    fi
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -794,26 +791,18 @@ virus() {
     else
         warn "rkhunter not installed; skipping rootkit scan."
     fi
-
-    if [[ -d "${HOME_DIR}/unix-privesc-check" ]]; then
-        log "Checking for common privilege escalation vectors!"
-        (
-            cd "${HOME_DIR}/unix-privesc-check" || exit 1
-            ./upc standard | tee "${HOME_DIR}/upc.txt" || warn "unix-privesc-check returned non-zero"
-        )
-    else
-        warn "unix-privesc-check not found. Skipping privilege escalation scan."
-    fi
-    
-    #log "Installing Lynis, a comprehensive security auditing tool!"
-    #cd /usr/local
-    #git clone https://github.com/CISOfy/lynis >/dev/null||true
-    #if [[ -d lynis]]; then
-        #cd lynis
-		#chmod +x lynis
-        #./lynis audit system| tee ~/lynis.txt
-        #log "Lynis results have also been saved to lynis.txt, you can check it later."
-        #cd ${HOME_DIR}
+	if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
+		log "Installing Lynis!"
+		cd /usr/local
+    	git clone https://github.com/CISOfy/lynis >/dev/null||true
+    	if [[ -d lynis]]; then
+        	cd lynis
+			chmod +x lynis
+        	./lynis audit system | tee "${HOME_DIR}"/lynis.txt
+        	log "Lynis results have also been saved to lynis.txt, you can check it later."
+        	cd ${HOME_DIR}
+		fi
+	fi
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -834,10 +823,10 @@ reboot_machine() {
 }
 
 final_checks() {
-    log "MAKE SURE TO TURN ON AUTOUPDATE!"
     log "Some unauthorized services may be running. Use stacer to review processes."
     log "Review the system for any services not covered by this script."
     log "Make sure to take a look at ${HOME_DIR}/virusscan.txt to see if there are any viruses."
+	log "Check crontab for anything malicious running!"
     log "Check autorun applications for anything that runs on boot; some may also be in /etc/init.d"
     log "Check the README to see if there are any other requirements to do for points!"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
@@ -849,12 +838,16 @@ final_checks() {
 
 cleanup() {
     log "Cleaning up!"
+	log "Removing files needed or created by the script!"
+	log "Keeping the log, though!"
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
+	cd ${HOME_DIR}
+	rm -f users.txt admins.txt machineusers.txt maybebadusers.txt maybebadadmins.txt machineadmins.txt unauthfiles.txt installed_pkgs.txt forensics.txt source.txt nmap.txt hiddenuser.txt upgraded_pkgs.txt
+	rm -rf user group
     log "Removing unneeded software and dependencies installed by the script!"
     apt-get remove -y byobu nmap rkhunter stacer pwgen >/dev/null || true
     apt-get autoremove -y >/dev/null || true
     apt-get autoclean -y || true
-    rm -rf "${HOME_DIR}"/unix-privesc-check
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
