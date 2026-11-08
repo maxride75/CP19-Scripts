@@ -777,7 +777,7 @@ virus() {
     log "Scanning for viruses!"
     if dpkg -s clamav >/dev/null 2>&1; then
         freshclam || warn "freshclam returned non-zero"
-        clamscan -r -i -l "${HOME_DIR}/virusscan.txt" & || warn "clamscan returned non-zero"
+        clamscan -r -i -l "${HOME_DIR}/virusscan.txt"  || warn "clamscan returned non-zero"
         log "Virus scan is currently running and output is stored in ${HOME_DIR}/virusscan.txt."
     else
         warn "ClamAV is not installed; skipping antivirus scan."
@@ -794,13 +794,13 @@ virus() {
 	if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
 		log "Installing Lynis!"
 		cd /usr/local
-    	git clone https://github.com/CISOfy/lynis >/dev/null||true
-    	if [[ -d lynis]]; then
-        	cd lynis
+    		git clone https://github.com/CISOfy/lynis >/dev/null||true
+    		if [[ -d lynis ]]; then
+        		cd lynis
 			chmod +x lynis
-        	./lynis audit system | tee "${HOME_DIR}"/lynis.txt
-        	log "Lynis results have also been saved to lynis.txt, you can check it later."
-        	cd ${HOME_DIR}
+        		./lynis audit system | tee "${HOME_DIR}"/lynis.txt
+        		log "Lynis results have also been saved to lynis.txt, you can check it later."
+        		cd ${HOME_DIR}
 		else
 			warn "Lynis not installed successfully!"
 		fi
