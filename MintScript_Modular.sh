@@ -114,7 +114,7 @@ prerequisites() {
     echo "----------------------PREREQUISITES-------------------------"
     echo "This script will fail if these are not done correctly!!"
     echo "This part is step-by-step, and please press [Enter] after each step is done."
-    read -r -p "1. Add the main source to /etc/apt/sources.list. " </dev/tty
+    read -r -p "1. Make sure apt repos are set up correctly. " </dev/tty
     read -r -p "2. In your home directory, create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
     read -r -p "3. Same place: Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
     read -r -p "4. Same place: If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it. " </dev/tty
@@ -152,13 +152,6 @@ EOF
 
 update() {
     if prompt_yes_no "Would you like to update the machine?"; then
-        log "Add the lines in source.txt to /etc/apt/sources.list"
-        cat > source.txt <<'EOF'
-deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
-deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
-deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
-EOF
-        read -r -p "Press [Enter] to continue once ready... "
         log "Proceeding with package updates..."
         apt-get update >/dev/null || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
@@ -1009,9 +1002,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || warn "apt did not install fastfetch successfully; features with fastfetch will not work!"
-        cd CP19-Scripts
-        dpkg -i fastfetch-linux-aarch64.deb
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||cd CP19-Scripts; dpkg -i fastfetch-linux-aarch64.deb
     fi
 
     prerequisites
