@@ -160,9 +160,9 @@ deb http://security.debian.org/debian-security bookworm-security main contrib no
 EOF
 		read -r -p "Press [Enter] to continue once ready... "
 		log "Proceeding with package updates..."
-        apt-get update >/dev/null || warn "Package update returned a non-zero exit code."
+        apt-get update || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
-        apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+        apt-get upgrade -y || warn "Package upgrade returned a non-zero exit code."
 		log "Enabling auto update!"
 		local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
 		touch "${auto_upgrades}"||true
@@ -179,7 +179,7 @@ EOF
 
 install_packages() {
     log "Installing required packages..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps >/dev/null || warn "Packages were not installed successfully!"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps || warn "Packages were not installed successfully!"
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -777,7 +777,7 @@ virus() {
     log "Scanning for viruses!"
     if dpkg -s clamav >/dev/null 2>&1; then
         freshclam || warn "freshclam returned non-zero"
-        clamscan -r -i -l "${HOME_DIR}/virusscan.txt" || warn "clamscan returned non-zero"
+        clamscan -r -i -l "${HOME_DIR}/virusscan.txt" & || warn "clamscan returned non-zero"
         log "Virus scan is currently running and output is stored in ${HOME_DIR}/virusscan.txt."
     else
         warn "ClamAV is not installed; skipping antivirus scan."
@@ -801,6 +801,8 @@ virus() {
         	./lynis audit system | tee "${HOME_DIR}"/lynis.txt
         	log "Lynis results have also been saved to lynis.txt, you can check it later."
         	cd ${HOME_DIR}
+		else
+			warn "Lynis not installed successfully!"
 		fi
 	fi
 
@@ -998,9 +1000,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || warn "apt did not install fastfetch successfully; features with fastfetch will not work!"
-        cd CP19-Scripts
-        dpkg -i fastfetch-linux-aarch64.deb
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || dpkg -i fastfetch-linux-aarch64.deb || warn "Both methods of installing fastfetch failed!"
     fi
 
     prerequisites
