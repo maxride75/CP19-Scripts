@@ -114,11 +114,11 @@ prerequisites() {
     echo "----------------------PREREQUISITES-------------------------"
     echo "This script will fail if these are not done correctly!!"
     echo "This part is step-by-step, and please press [Enter] after each step is done."
-    read -r -p "1. Launch Update Manager and make sure apt repos are set up correctly, e.g. they can connect! " </dev/tty
-    read -r -p "2. Create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
-    read -r -p "3. Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
-    read -r -p "4. If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it. " </dev/tty
-    read -r -p "5. Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named user.txt and group.txt. " </dev/tty
+    read -r -p "1. Add the main source to /etc/apt/sources.list. " </dev/tty
+    read -r -p "2. In your home directory, create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
+    read -r -p "3. Same place: Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
+    read -r -p "4. Same place: If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it. " </dev/tty
+    read -r -p "5. Same place: Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named user.txt and group.txt. " </dev/tty
     read -r -p "If you finished all of those, great! Press [Enter] to continue! " </dev/tty
 }
 
@@ -152,10 +152,22 @@ EOF
 
 update() {
     if prompt_yes_no "Would you like to update the machine?"; then
+        log "Add the lines in source.txt to /etc/apt/sources.list"
+        cat > source.txt <<'EOF'
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+EOF
+        read -r -p "Press [Enter] to continue once ready... "
         log "Proceeding with package updates..."
         apt-get update >/dev/null || warn "Package update returned a non-zero exit code."
         apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
         apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+        log "Enabling auto update!"
+        local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
+        touch "${auto_upgrades}" || true
+        set_config_value "${auto_upgrades}" "APT::Periodic::Update-Package-Lists" '"1";'
+        set_config_value "${auto_upgrades}" "APT::Periodic::Unattended-Upgrade" '"1";'
     else
         echo "Update manually as required by the README."
     fi
@@ -167,16 +179,7 @@ update() {
 
 install_packages() {
     log "Installing required packages..."
-    apt-get update >/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps >/dev/null || warn "Packages were not installed successfully!"
-
-    if [[ ! -d "${HOME_DIR}/unix-privesc-check" ]]; then
-        git clone https://github.com/pentestmonkey/unix-privesc-check "${HOME_DIR}/unix-privesc-check" || warn "Failed to clone unix-privesc-check"
-    fi
-
-    if [[ -f "${HOME_DIR}/unix-privesc-check/upc.sh" ]]; then
-        chmod +x "${HOME_DIR}/unix-privesc-check/upc.sh" || true
-    fi
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -258,7 +261,7 @@ check_and_manage_admins() {
                 break
             fi
             log "Demoting user: ${adm}"
-            deluser "${adm}" sudo adm -q || warn "Failed to demote ${adm}"
+            deluser "${adm}" sudo -q || warn "Failed to demote ${adm}"
             echo "If a user was demoted and shouldn't have been, check the log and promote them!"
         done
     else
@@ -294,9 +297,10 @@ check_and_manage_users() {
             while IFS= read -r user; do
                 [[ -z "${user}" ]] && continue
                 log "Removing user: ${user}"
-                userdel -r "${user}" || warn "Failed to remove ${user}"
+                userdel -r "${user}" || true
+                echo "If a user's directory was not found, that is okay."
             done < "${HOME_DIR}/maybebadusers.txt"
-            echo "If a user was demoted and shouldn't have been, check the log and promote them!"
+            echo "If a user was deleted and shouldn't have been, check the log and re-add them!"
         else
             echo "Make sure to delete them for points!"
         fi
@@ -372,10 +376,14 @@ manage_local_users_and_groups() {
                 if prompt_yes_no "Should they be an admin?"; then
                     usermod -aG sudo,adm "${user_name}" || warn "Failed to add ${user_name} to sudo and adm groups"
                 fi
+                if prompt_yes_no "Should they be added to a group?"; then
+                    read -r -p "Type in the group name here: " group
+                    usermod -aG "${group}" "${user_name}"
+                fi
                 break
                 ;;
             N)
-                echo "If you need to, use: adduser or usermod -aG group"
+                echo "If you need to, use: adduser user or usermod -aG group user"
                 break
                 ;;
             *)
@@ -700,7 +708,7 @@ prohibited_pkgs() {
     local pkg="hollywood"
     apt list --installed | grep -v '\<lib' > "${HOME_DIR}/installed_pkgs.txt"
     log "Removing bad packages!"
-    apt-get purge -y john hydra transmission-gtk warpinator ophcrack doona xprobe squid || true
+    apt-get purge -y john hydra transmission-gtk warpinator ophcrack doona xprobe squid os-prober aisleriot || true
     apt-get autoremove -y || true
     log "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
     log "If you want to remove other software, the Mint Store is a good place to start!"
@@ -741,6 +749,7 @@ unauth_files() {
             -iname '*.mp4' -o \
             -iname '*.php' -o \
             -iname '*.pl' -o \
+            -iname '*.elf' -o \
         \) 2>/dev/null
         cd /usr/games
         ls --ignore "*gamemode*"
@@ -783,6 +792,19 @@ virus() {
         warn "rkhunter not installed; skipping rootkit scan."
     fi
 
+    if prompt_yes_no "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
+        log "Installing Lynis!"
+        cd /usr/local
+        git clone https://github.com/CISOfy/lynis >/dev/null || true
+        if [[ -d lynis ]]; then
+            cd lynis
+            chmod +x lynis
+            ./lynis audit system | tee "${HOME_DIR}"/lynis.txt
+            log "Lynis results have also been saved to lynis.txt, you can check it later."
+            cd "${HOME_DIR}"
+        fi
+    fi
+
     if [[ -d "${HOME_DIR}/unix-privesc-check" ]]; then
         log "Checking for common privilege escalation vectors!"
         (
@@ -792,15 +814,6 @@ virus() {
     else
         warn "unix-privesc-check not found. Skipping privilege escalation scan."
     fi
-    
-    #log "Installing Lynis, a comprehensive security auditing tool!"
-    #cd /usr/local
-    #git clone https://github.com/CISOfy/lynis >/dev/null||true
-    #if [[ -d lynis]]; then
-        #cd lynis
-        #./lynis audit system| tee ~/lynis.txt
-        #log "Lynis results have also been saved to lynis.txt, you can check it later."
-        #cd ${HOME_DIR}
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -821,10 +834,10 @@ reboot_machine() {
 }
 
 final_checks() {
-    log "MAKE SURE TO TURN ON AUTOUPDATE!"
     log "Some unauthorized services may be running. Use stacer to review processes."
     log "Review the system for any services not covered by this script."
     log "Make sure to take a look at ${HOME_DIR}/virusscan.txt to see if there are any viruses."
+    log "Check crontab for anything malicious running!"
     log "Check autorun applications for anything that runs on boot; some may also be in /etc/init.d"
     log "Check the README to see if there are any other requirements to do for points!"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
@@ -836,12 +849,16 @@ final_checks() {
 
 cleanup() {
     log "Cleaning up!"
+    log "Removing files needed or created by the script!"
+    log "Keeping the log, though!"
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
+    cd "${HOME_DIR}"
+    rm -f users.txt admins.txt machineusers.txt maybebadusers.txt maybebadadmins.txt machineadmins.txt unauthfiles.txt installed_pkgs.txt forensics.txt source.txt nmap.txt hiddenuser.txt upgraded_pkgs.txt uid0.txt virusscan.txt upc.txt lynis.txt
+    rm -rf user group
     log "Removing unneeded software and dependencies installed by the script!"
     apt-get remove -y byobu nmap rkhunter stacer pwgen >/dev/null || true
     apt-get autoremove -y >/dev/null || true
     apt-get autoclean -y || true
-    rm -rf "${HOME_DIR}"/unix-privesc-check
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -993,6 +1010,8 @@ main() {
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
         DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || warn "apt did not install fastfetch successfully; features with fastfetch will not work!"
+        cd CP19-Scripts
+        dpkg -i fastfetch-linux-aarch64.deb
     fi
 
     prerequisites
