@@ -1000,7 +1000,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || dpkg -i fastfetch-linux-aarch64.deb || warn "Both methods of installing fastfetch failed!"
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || dpkg -i fastfetch-linux-amd64.deb || warn "Both methods of installing fastfetch failed!"
     fi
 
     prerequisites
