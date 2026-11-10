@@ -1002,7 +1002,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||cd CP19-Scripts; dpkg -i fastfetch-linux-amd64.deb
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||dpkg -i fastfetch-linux-amd64.deb
     fi
 
     prerequisites
