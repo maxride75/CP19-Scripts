@@ -125,6 +125,7 @@ prerequisites() {
 forensics() {
     if prompt_yes_no "Have the forensics questions been answered or are they answerable?"; then
         echo "Nice job!"
+		log "Make sure to delete MP3 files if you found them!"
     else
         cd "${HOME_DIR}" || warn "Unable to cd to ${HOME_DIR}"
         log "Forensics help is in ${HOME_DIR}/forensics.txt, but help can also be found by googling..."
@@ -159,10 +160,16 @@ deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free
 deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
 EOF
 		read -r -p "Press [Enter] to continue once ready... "
-		log "Proceeding with package updates..."
-        apt-get update || warn "Package update returned a non-zero exit code."
-        apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
-        apt-get upgrade -y || warn "Package upgrade returned a non-zero exit code."
+		if prompt_yes_no "Would you like to run the updates in the background?"; then
+			log "Proceeding with package updates..."
+			apt-get update >/dev/null || warn "Package update returned a non-zero exit code!"
+			apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
+			apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+		else
+			log "Proceeding with package updates..."
+       		apt-get update || warn "Package update returned a non-zero exit code."
+        	apt-get upgrade -y || warn "Package upgrade returned a non-zero exit code."
+		fi
 		log "Enabling auto update!"
 		local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
 		touch "${auto_upgrades}"||true
