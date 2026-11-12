@@ -495,6 +495,8 @@ misc_sec() {
     set_config_value "/etc/sysctl.conf" "fs.suid_dumpable=" "0"
     set_config_value "/etc/sysctl.conf" "fs.protected_hardlinks=" "1"
     set_config_value "/etc/sysctl.conf" "fs.protected_symlinks=" "1"
+	log "Edit sysctl.conf to remove spaces between parameters and statuses before continuing!"
+	read -r -p "Press [Enter] to continue once done... " </dev/tty
 
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -552,7 +554,9 @@ root_lock() {
 
 sysrq() {
     echo "Disabling sysrq!"
-    set_config_value "/etc/sysctl.conf" "kernel.sysrq" "0"
+    set_config_value "/etc/sysctl.conf" "kernel.sysrq=" "0"
+	log "Edit sysctl.conf to remove spaces between parameters and statuses before continuing!"
+	read -r -p "Press [Enter] to continue once done... " </dev/tty
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -774,6 +778,7 @@ pwd_pol() {
     log "Adding a password complexity policy!"
     sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
     sed -i 's/nullok//g' /etc/pam.d/common-auth
+	log "Make sure to run pam-auth-update again to make sure PAM changes work!"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -801,10 +806,10 @@ virus() {
 	if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
 		log "Installing Lynis!"
 		cd /usr/local
-    		git clone https://github.com/CISOfy/lynis >/dev/null||true
-    		if [[ -d lynis ]]; then
+    	git clone https://github.com/CISOfy/lynis >/dev/null||true
+    	if [[ -d lynis ]]; then
         		cd lynis
-			chmod +x lynis
+				chmod +x lynis
         		./lynis audit system | tee "${HOME_DIR}"/lynis.txt
         		log "Lynis results have also been saved to lynis.txt, you can check it later."
         		cd ${HOME_DIR}
