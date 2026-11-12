@@ -8,6 +8,6 @@ The rest of the Mint Script, and all Windows Scripts written by Github Copilot.
 
 The Mint Script is tested, and can get points, but is not fully tested.
 
-Windows Scripts are not tested.
+Windows Scripts are tested, with updates on the way.
 
 Debian script has arrived, with about the same content that Mint has.
