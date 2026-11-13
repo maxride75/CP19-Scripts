@@ -385,7 +385,7 @@ manage_local_users_and_groups() {
                 break
                 if prompt_yes_no "Should they be added to a group?"; then
                 	read -r -p "Type in the group name here: " group
-					usermod -aG ${group} ${user_name}
+					usermod -aG "${group}" "${user_name}"
 				fi
                 ;;
             N)
@@ -811,7 +811,7 @@ virus() {
 				chmod +x lynis
         		./lynis audit system | tee "${HOME_DIR}"/lynis.txt
         		log "Lynis results have also been saved to lynis.txt, you can check it later."
-        		cd ${HOME_DIR}
+        		cd "${HOME_DIR}"
 		else
 			warn "Lynis not installed successfully!"
 		fi
@@ -854,7 +854,7 @@ cleanup() {
 	log "Removing files needed or created by the script!"
 	log "Keeping the log, though!"
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
-	cd ${HOME_DIR}
+	cd "${HOME_DIR}"
 	rm -f users.txt admins.txt machineusers.txt maybebadusers.txt maybebadadmins.txt machineadmins.txt unauthfiles.txt installed_pkgs.txt forensics.txt source.txt nmap.txt hiddenuser.txt upgraded_pkgs.txt
 	rm -rf user group
     log "Removing unneeded software and dependencies installed by the script!"
