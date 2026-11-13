@@ -153,13 +153,12 @@ EOF
 
 update() {
     if prompt_yes_no "Would you like to update the machine?"; then
-        log "Add the lines in source.txt to /etc/apt/sources.list"
-		cat > source.txt << 'EOF'
+		cat > /etc/apt/sources.list << 'EOF'
 deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
 deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
 EOF
-		read -r -p "Press [Enter] to continue once ready... "
+		log "apt sources updated!"
 		if prompt_yes_no "Would you like to run the updates in the background?"; then
 			log "Proceeding with package updates..."
 			apt-get update >/dev/null || warn "Package update returned a non-zero exit code!"
