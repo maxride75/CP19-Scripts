@@ -114,11 +114,8 @@ prerequisites() {
     echo "----------------------PREREQUISITES-------------------------"
     echo "This script will fail if these are not done correctly!!"
     echo "This part is step-by-step, and please press [Enter] after each step is done."
-    read -r -p "1. Add the main source to /etc/apt/sources.list. " </dev/tty
-    read -r -p "2. In your home directory, create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
-    read -r -p "3. Same place: Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
-    read -r -p "4. Same place: If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it. " </dev/tty
-    read -r -p "5. Same place: Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named user.txt and group.txt. " </dev/tty
+    read -r -p "1. In your home directory, create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
+    read -r -p "2. Same place: Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
     read -r -p "If you finished all of those, great! Press [Enter] to continue! " </dev/tty
 }
 
@@ -330,7 +327,7 @@ check_and_manage_users() {
 
     awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > "${HOME_DIR}/hiddenuser.txt"
     if [[ -s "${HOME_DIR}/hiddenuser.txt" ]]; then
-        echo "These users have a UID that is less than 1000, meaning they are hidden"
+        echo "These users have a UID that is less than 1000, meaning they are hidden!"
         cat "${HOME_DIR}/hiddenuser.txt"
         echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
     fi
@@ -342,61 +339,35 @@ check_and_manage_users() {
 
 manage_local_users_and_groups() {
     log "Additional user/group management..."
-
-    while true; do
-        local choice
-        choice="$(prompt_choice "Does the README require extra user management? N for none... (G/U/N): " "G U N")"
-
-        case "${choice}" in
-            G)
-                if [[ ! -d "${HOME_DIR}/group" ]]; then
-                    warn "Group directory not found: ${HOME_DIR}/group"
-                    break
-                fi
-                cd "${HOME_DIR}/group" || err "Unable to enter ${HOME_DIR}/group"
-                local group_name
-                group_name="$(tr -d '\r' < group.txt)"
-                [[ -n "${group_name}" ]] || { warn "group.txt is empty."; break; }
-                log "Making group ${group_name}"
-                groupadd "${group_name}" || warn "Group ${group_name} may already exist."
-                while IFS= read -r user; do
-                    [[ -z "${user}" ]] && continue
-                    usermod -aG "${group_name}" "${user}" || warn "Failed to add ${user} to group ${group_name}"
-                done < user.txt
-                break
-                ;;
-            U)
-                if [[ ! -d "${HOME_DIR}/user" ]]; then
-                    warn "User directory not found: ${HOME_DIR}/user"
-                    break
-                fi
-                cd "${HOME_DIR}/user" || err "Unable to enter ${HOME_DIR}/user"
-                local user_name
-                user_name="$(tr -d '\r' < user.txt)"
-                [[ -n "${user_name}" ]] || { warn "user.txt is empty."; break; }
-                log "Making user ${user_name}"
-                useradd -m -s /bin/bash "${user_name}" || warn "User ${user_name} may already exist."
-                log "User ${user_name} made."
-                passwd --expire "${user_name}" || true
-                log "User ${user_name}'s password is set to expire when they login."
-                if prompt_yes_no "Should they be an admin?"; then
-                    usermod -aG sudo,adm "${user_name}" || warn "Failed to add ${user_name} to sudo and adm groups"
-                fi
-                break
-                if prompt_yes_no "Should they be added to a group?"; then
-                	read -r -p "Type in the group name here: " group
-					usermod -aG "${group}" "${user_name}"
-				fi
-                ;;
-            N)
-                echo "If you need to, use: adduser user or usermod -aG group user"
-                break
-                ;;
-            *)
-                echo "Invalid response."
-                ;;
-        esac
-    done
+    if prompt_choice "Does a new group need to be created with members?";then
+    	read -r -p "What is the name of the new group?" group
+    	groupadd "${group}"|| warn "Group already exists!"
+    	while true; do
+		read -r -p "Type the name of the user that needs to be added. When done, type done." user
+		if [[ "${user}" = "none" ]];then
+			break
+		else
+			usermod -aG "${group}" "${user}"
+		fi
+	done
+    fi
+	if prompt_choice "Does a new user need to be created?"; then
+		read -r -p "What is the name of the new user?" user2
+		useradd "${user2}"
+		if prompt_choice "Do they need to be an admin?"; then
+			usermod -aG sudo "${user2}"
+		fi
+		if prompt_choice "Should their password expire?"; then
+			passwd --expire "${user2}"
+		fi
+		if prompt_choice "Do they need to be added to a group?"; then
+			read -r -p "What is the name of the group they need to be added to?" group2
+			usermod -aG "${group2}"
+		fi
+		log "Changing their password!"
+		echo "${user2}:$(pwgen -sy 20 1)" | chpasswd
+	fi
+	
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -466,15 +437,24 @@ misc_sec() {
     echo "Restricting users from dmesg!"
     echo "kernel.dmesg_restrict=1" | tee -a /etc/sysctl.d/6-dmesg-sudo.conf >/dev/null
 
-    log "Changing all users and admins' password ages to 60 days!"
+    log "Changing all users and admins' max password ages to 60 days!"
     while IFS= read -r user; do
         [[ -z "${user}" ]] && continue
         if [[ "${user}" != "${TARGET_USER}" ]]; then
             chage -M 60 "${user}" || warn "Failed to set password max age for ${user}"
         fi
     done < <(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
-
     log "All unhidden users' maximum password age (not yours) was set to 60 days."
+    log "Changing all admins and users' min password age to 20 days!" 
+    while IFS= read -r user; do
+        [[ -z "${user}" ]] && continue
+        if [[ "${user}" != "${TARGET_USER}" ]]; then
+            chage -m 20 "${user}" || warn "Failed to set password max age for ${user}"
+        fi
+     	done < <(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
+        
+
+    log "All unhidden users' minimum password age (not yours) was set to 20 days."
     log "Changing sysctl parameters!"
 
     set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies=" "1"
@@ -496,8 +476,18 @@ misc_sec() {
     set_config_value "/etc/sysctl.conf" "fs.protected_symlinks=" "1"
 	log "Edit sysctl.conf to remove spaces between parameters and statuses before continuing!"
 	read -r -p "Press [Enter] to continue once done... " </dev/tty
+	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
+	
+	set_config_value "/etc/lightdm/lightdm.conf" "allow-guest=" "0"
+	log "Edit lightdm.conf to remove spaces between parameters and statuses before continuing!"
+	read -r -p "Press [Enter] to continue once done... " </dev/tty
+	
+	if cat /etc/sudoers|grep "NOPASSWD";then
+		log "User with no passsword sudo perms found! Edit with visudo now!"
+		read -r -p "Press [Enter] to continue!" </dev/tty
+	fi
 
-    sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
+    
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -505,37 +495,39 @@ misc_sec() {
 }
 
 configure_ssh() {
-    log "Checking SSH settings..."
-    if ! prompt_yes_no "Does the README say users need to log in via SSH?"; then
-        if prompt_yes_no "Would you like to attempt to uninstall SSH?"; then
-            apt-get purge -y openssh-server || warn "Failed to purge openssh-server"
-            return 0
-        else
-            log "Stopping and disabling sshd!"
-            systemctl stop ssh || warn "Stopping sshd returned a non-zero error code!"
-            systemctl disable ssh || warn "Disabling sshd returned a non-zero error code!"
-            return 0
-        fi
+    if pgrep sshd; then
+    	if ! prompt_yes_no "sshd found! Does the README say users need to log in via SSH?"; then
+        	if prompt_yes_no "Would you like to stop, disable, and uninstall SSH?"; then
+            		systemctl stop sshd|| warn "Failed to stop sshd!"
+            		systemctl disable sshd || warn "Failed to stop sshd!"
+            		apt-get purge -y openssh-server || warn "Failed to purge openssh-server"
+            		return 0
+        	else
+            		log "Make sure to get rid of it at some point!"
+            		return 0
+        	fi
+    	fi
+
+    else
+    	log "Securing SSH!"
+    	local ssh_config="/etc/ssh/sshd_config"
+    	if [[ ! -f "${ssh_config}" ]]; then
+        	warn "No sshd_config file found. Skipping SSH hardening."
+        	return 0
+    	fi
+
+    	set_config_value "${ssh_config}" "PermitRootLogin" "no"
+    	set_config_value "${ssh_config}" "UsePAM" "yes"
+    	set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
+    	set_config_value "${ssh_config}" "DisableForwarding" "yes"
+    	set_config_value "${ssh_config}" "X11Forwarding" "no"
+    	set_config_value "${ssh_config}" "MaxAuthTries" "6"
+    	set_config_value "${ssh_config}" "PermitTunnel" "no"
+    	set_config_value "${ssh_config}" "GatewayPorts" "no"
+
+    	log "SSH has been secured, reloading SSH now..."
+    	systemctl reload ssh || warn "Failed to reload SSH service."
     fi
-
-    log "Securing SSH!"
-    local ssh_config="/etc/ssh/sshd_config"
-    if [[ ! -f "${ssh_config}" ]]; then
-        warn "No sshd_config file found. Skipping SSH hardening."
-        return 0
-    fi
-
-    set_config_value "${ssh_config}" "PermitRootLogin" "no"
-    set_config_value "${ssh_config}" "UsePAM" "yes"
-    set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
-    set_config_value "${ssh_config}" "DisableForwarding" "yes"
-    set_config_value "${ssh_config}" "X11Forwarding" "no"
-    set_config_value "${ssh_config}" "MaxAuthTries" "6"
-    set_config_value "${ssh_config}" "PermitTunnel" "no"
-    set_config_value "${ssh_config}" "GatewayPorts" "no"
-
-    log "SSH has been secured, reloading SSH now..."
-    systemctl reload ssh || warn "Failed to reload SSH service."
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -566,7 +558,7 @@ sysrq() {
 reperm_files() {
     log "Making sure critical files are permissioned correctly!"
     cd /etc || warn "Unable to cd /etc"
-    for f in sudoers shadow passwd ssh/sshd_config /boot/grub/grub.cfg; do
+    for f in "sudoers" "shadow" "passwd" "ssh/sshd_config" "/boot/grub/grub.cfg"; do
         if [[ -e "${f}" ]]; then
             chown root:root "${f}" || warn "chown failed on ${f}"
         fi
@@ -597,7 +589,7 @@ nmap_machine() {
         apt-get install -y nmap >/dev/null
     fi
     log "Scanning ports!"
-    nmap -sT -oN "${HOME_DIR}/nmap.txt" localhost
+    nmap -sT -p - -oN "${HOME_DIR}/nmap.txt" localhost
     echo "This machine's ports have been scanned, output is in ${HOME_DIR}/nmap.txt"
     echo "Take a look; more information can be found at speedguide.net or via ss -tlnp."
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -608,7 +600,7 @@ nmap_machine() {
 
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/Php/N): " "X A F M N P")"
+    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/Ftp/Mysql/Php/N): " "X A F M N P")"
 
     case "${choice}" in
         X)
@@ -718,8 +710,8 @@ prohibited_pkgs() {
     local pkg="hollywood"
     apt list --installed | grep -v '\<lib' > "${HOME_DIR}/installed_pkgs.txt"
     log "Removing bad packages!"
-    apt-get purge -y john hydra transmission-gtk warpinator ophcrack doona xprobe squid os-prober aisleriot || true
-    apt-get autoremove -y || true
+    apt-get purge -y john hydra transmission-gtk warpinator ophcrack doona xprobe squid os-prober aisleriot zangband || true
+    apt-get autopurge -y || true
     log "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
     log "If you want to remove other software, the Mint Store is a good place to start!"
     while true; do
@@ -776,8 +768,8 @@ unauth_files() {
 pwd_pol() {
     log "Adding a password complexity policy!"
     sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+    log "Removing nullok from common-auth!"
     sed -i 's/nullok//g' /etc/pam.d/common-auth
-	log "Make sure to run pam-auth-update again to make sure PAM changes work!"
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -795,8 +787,6 @@ virus() {
     fi
 
     if dpkg -s rkhunter >/dev/null 2>&1; then
-        log "Updating the rootkit hunter."
-        rkhunter --update || warn "rkhunter update failed"
         log "Hunting for rootkits and other various malware!"
         rkhunter -c || warn "rkhunter check failed"
     else
@@ -805,10 +795,10 @@ virus() {
 	if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
 		log "Installing Lynis!"
 		cd /usr/local
-    	git clone https://github.com/CISOfy/lynis >/dev/null||true
-    	if [[ -d lynis ]]; then
+    		git clone https://github.com/CISOfy/lynis >/dev/null||true
+    		if [[ -d lynis ]]; then
         		cd lynis
-				chmod +x lynis
+			chmod +x lynis
         		./lynis audit system | tee "${HOME_DIR}"/lynis.txt
         		log "Lynis results have also been saved to lynis.txt, you can check it later."
         		cd "${HOME_DIR}"
@@ -836,10 +826,10 @@ reboot_machine() {
 }
 
 final_checks() {
-    log "Some unauthorized services may be running. Use stacer to review processes."
+    log "Some other unauthorized services may be running. Use stacer to review processes."
     log "Review the system for any services not covered by this script."
     log "Make sure to take a look at ${HOME_DIR}/virusscan.txt to see if there are any viruses."
-	log "Check crontab for anything malicious running!"
+    log "Check crontab for anything malicious running!"
     log "Check autorun applications for anything that runs on boot; some may also be in /etc/init.d"
     log "Check the README to see if there are any other requirements to do for points!"
     echo "Make sure to check the log in ${LOG_FILE} to see if there were any errors!"
@@ -856,9 +846,8 @@ cleanup() {
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
 	cd "${HOME_DIR}"
 	rm -f users.txt admins.txt machineusers.txt maybebadusers.txt maybebadadmins.txt machineadmins.txt unauthfiles.txt installed_pkgs.txt forensics.txt source.txt nmap.txt hiddenuser.txt upgraded_pkgs.txt
-	rm -rf user group
     log "Removing unneeded software and dependencies installed by the script!"
-    apt-get remove -y byobu nmap rkhunter stacer pwgen >/dev/null || true
+    apt-get remove -y byobu nmap rkhunter pwgen >/dev/null || true
     apt-get autoremove -y >/dev/null || true
     apt-get autoclean -y || true
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -922,7 +911,6 @@ kitchen_sink() {
 
 exit_script() {
     clear
-    echo "See you soon!"
     if dpkg -s fastfetch >/dev/null 2>&1; then
         fastfetch --structure logo --logo kali || true
     fi
