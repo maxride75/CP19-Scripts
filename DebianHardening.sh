@@ -166,14 +166,15 @@ EOF
        		apt-get update || warn "Package update returned a non-zero exit code."
         	apt-get upgrade -y || warn "Package upgrade returned a non-zero exit code."
 		fi
-		log "Enabling auto update!"
-		local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
-		touch "${auto_upgrades}"||true
-		set_config_value "${auto_upgrades}" "APT::Periodic::Update-Package-Lists" '"1";'
-		set_config_value "${auto_upgrades}" "APT::Periodic::Unattended-Upgrade" '"1";'
+		
     else
         echo "Update manually as required by the README."
     fi
+    log "Enabling auto update!"
+	local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
+	touch "${auto_upgrades}"||true
+	set_config_value "${auto_upgrades}" "APT::Periodic::Update-Package-Lists" '"1";'
+	set_config_value "${auto_upgrades}" "APT::Periodic::Unattended-Upgrade" '"1";'
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -183,7 +184,18 @@ EOF
 install_packages() {
     log "Installing required packages..."
     DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps || warn "Packages were not installed successfully!"
-
+    if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
+		log "Installing Lynis!"
+		cd /usr/local
+    		git clone https://github.com/CISOfy/lynis >/dev/null||true
+    		if [[ -d lynis ]]; then
+        		cd lynis
+			chmod +x lynis
+			local lynisinstall=1
+		else
+			warn "Lynis not installed successfully!"
+		fi
+	fi
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -495,6 +507,7 @@ misc_sec() {
 }
 
 configure_ssh() {
+    log "Looking for sshd!"
     if pgrep sshd; then
     	if ! prompt_yes_no "sshd found! Does the README say users need to log in via SSH?"; then
         	if prompt_yes_no "Would you like to stop, disable, and uninstall SSH?"; then
@@ -527,6 +540,8 @@ configure_ssh() {
 
     	log "SSH has been secured, reloading SSH now..."
     	systemctl reload ssh || warn "Failed to reload SSH service."
+    else
+    	log "sshd has not been found running on the machine!"
     fi
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -689,7 +704,7 @@ EOF
             echo "Invalid response."
             ;;
     esac
-    for webfile in apache2 mysqld mariadb vsftpd nginx; do
+    for webfile in apache2 mysqld mariadb vsftpd nginx dovecot exim4; do
         if pgrep ${webfile}; then
             if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
                 systemctl stop ${webfile}
@@ -792,19 +807,11 @@ virus() {
     else
         warn "rkhunter not installed; skipping rootkit scan."
     fi
-	if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
-		log "Installing Lynis!"
-		cd /usr/local
-    		git clone https://github.com/CISOfy/lynis >/dev/null||true
-    		if [[ -d lynis ]]; then
-        		cd lynis
-			chmod +x lynis
-        		./lynis audit system | tee "${HOME_DIR}"/lynis.txt
-        		log "Lynis results have also been saved to lynis.txt, you can check it later."
-        		cd "${HOME_DIR}"
-		else
-			warn "Lynis not installed successfully!"
-		fi
+	if [[ -d /usr/local/lynis ]]; then
+		cd /usr/local/lynis
+        	./lynis audit system | tee "${HOME_DIR}"/lynis.txt
+        	log "Lynis results have also been saved to lynis.txt, you can check it later."
+        	cd "${HOME_DIR}"
 	fi
 
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -815,6 +822,7 @@ virus() {
 
 reboot_machine() {
     if prompt_yes_no "Would you like to reboot the machine to apply changes? Warning: This script will not keep running after reboot! (y/n): "; then
+        read -r -p "Press [Enter] to reboot now! "
         shutdown -r now
     else
         echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
