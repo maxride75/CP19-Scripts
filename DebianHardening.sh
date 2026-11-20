@@ -704,12 +704,19 @@ EOF
             echo "Invalid response."
             ;;
     esac
-    for webfile in apache2 mysqld mariadb vsftpd nginx dovecot exim4; do
+    for webfile in apache2 mysqld mariadb vsftpd nginx dovecot exim4 smbd; do
         if pgrep ${webfile}; then
             if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
                 systemctl stop ${webfile}
                 systemctl disable ${webfile}
-                apt purge ${webfile}
+                if prompt_yes_no "Confirm delete ${webfile?"; then
+                	apt purge ${webfile}
+                else
+                	if prompt_yes_no "Would you like to reinstate ${webfile}?"; then
+                		systemctl enable ${webfile}
+                		systemctl start ${webfile}
+                	fi
+                fi
             else
                 echo "Make sure to stop it for points!"
             fi
@@ -728,7 +735,7 @@ prohibited_pkgs() {
     apt-get purge -y john hydra transmission-gtk warpinator ophcrack doona xprobe squid os-prober aisleriot zangband || true
     apt-get autopurge -y || true
     log "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
-    log "If you want to remove other software, the Mint Store is a good place to start!"
+    log "If you want to remove other software, Synaptic is a good place to start!"
     while true; do
         apt list --installed | grep -v '\<lib' > "${HOME_DIR}/installed_pkgs.txt"
         echo "Installed packages are in ${HOME_DIR}/installed_pkgs.txt."
