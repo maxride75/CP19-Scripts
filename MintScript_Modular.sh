@@ -117,8 +117,6 @@ prerequisites() {
     read -r -p "1. Make sure apt repos are set up correctly. " </dev/tty
     read -r -p "2. In your home directory, create a text file called admins.txt and place the list of admins from the README in there. DO NOT INCLUDE PASSWORDS! " </dev/tty
     read -r -p "3. Same place: Create a text file called users.txt and place the list of users from the README in there. AGAIN, DO NOT INCLUDE PASSWORDS! " </dev/tty
-    read -r -p "4. Same place: If the README specifies to create a new user, make a new directory in your home folder called user, and place a file called user.txt with the new user you need to create in it. " </dev/tty
-    read -r -p "5. Same place: Likewise, if the README specifies to create a new group, make a new directory in your home folder called group, but this time, create 2 text files, named user.txt and group.txt. " </dev/tty
     read -r -p "If you finished all of those, great! Press [Enter] to continue! " </dev/tty
 }
 
@@ -152,18 +150,25 @@ EOF
 
 update() {
     if prompt_yes_no "Would you like to update the machine?"; then
-        log "Proceeding with package updates..."
-        apt-get update >/dev/null || warn "Package update returned a non-zero exit code."
-        apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
-        apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
-        log "Enabling auto update!"
-        local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
-        touch "${auto_upgrades}" || true
-        set_config_value "${auto_upgrades}" "APT::Periodic::Update-Package-Lists" '"1";'
-        set_config_value "${auto_upgrades}" "APT::Periodic::Unattended-Upgrade" '"1";'
+		if prompt_yes_no "Would you like to run the updates in the background?"; then
+			log "Proceeding with package updates..."
+			apt-get update >/dev/null || warn "Package update returned a non-zero exit code!"
+			apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
+			apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
+		else
+			log "Proceeding with package updates..."
+       		apt-get update || warn "Package update returned a non-zero exit code."
+        	apt-get upgrade -y || warn "Package upgrade returned a non-zero exit code."
+		fi
+		
     else
         echo "Update manually as required by the README."
     fi
+    log "Enabling auto update!"
+	local auto_upgrades="/etc/apt/apt.conf.d/20auto-upgrades"
+	touch "${auto_upgrades}"||true
+	set_config_value "${auto_upgrades}" "APT::Periodic::Update-Package-Lists" '"1";'
+	set_config_value "${auto_upgrades}" "APT::Periodic::Unattended-Upgrade" '"1";'
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -172,8 +177,17 @@ update() {
 
 install_packages() {
     log "Installing required packages..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps >/dev/null || warn "Packages were not installed successfully!"
-
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps || warn "Packages were not installed successfully!"
+    if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
+		log "Installing Lynis!"
+		cd /usr/local
+    		git clone https://github.com/CISOfy/lynis >/dev/null||true
+    		if [[ -d lynis ]]; then
+        		cd lynis
+			chmod +x lynis
+		else
+			warn "Lynis not installed successfully!"
+	fi
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -196,7 +210,7 @@ configure_firewall() {
 
 configure_pam() {
     log "Configuring PAM faillock policies..."
-    mkdir -p /usr/share/pam-configs
+    mkdir -p /usr/share/pam-configs||true
 
     write_pam_file "/usr/share/pam-configs/faillock" "Name: Enforce failed login attempt counter
 Default: no
@@ -290,15 +304,15 @@ check_and_manage_users() {
             while IFS= read -r user; do
                 [[ -z "${user}" ]] && continue
                 log "Removing user: ${user}"
-                userdel -r "${user}" || true
-                echo "If a user's directory was not found, that is okay."
+                userdel -rf "${user}" || true
+				echo "If a user's directory was not found, that is okay."
             done < "${HOME_DIR}/maybebadusers.txt"
             echo "If a user was deleted and shouldn't have been, check the log and re-add them!"
         else
             echo "Make sure to delete them for points!"
         fi
     else
-        log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them after the script is done!"
+        log "No suspect users found, but this doesn't mean they aren't there! Manually check for them after the script is done!"
     fi
 
     awk -F: '$3 == 0 {print $1}' /etc/passwd | grep -v '^root$' > "${HOME_DIR}/uid0.txt"
@@ -317,7 +331,7 @@ check_and_manage_users() {
 
     awk -F: '$3 < 1000 {print "User: " $1, "UID: " $3, "Shell: " $7}' /etc/passwd > "${HOME_DIR}/hiddenuser.txt"
     if [[ -s "${HOME_DIR}/hiddenuser.txt" ]]; then
-        echo "These users have a UID that is less than 1000, meaning they are hidden"
+        echo "These users have a UID that is less than 1000, meaning they are hidden!"
         cat "${HOME_DIR}/hiddenuser.txt"
         echo "Make sure they are authorized, because the script does not automatically remove hidden users!"
     fi
@@ -329,61 +343,35 @@ check_and_manage_users() {
 
 manage_local_users_and_groups() {
     log "Additional user/group management..."
-
-    while true; do
-        local choice
-        choice="$(prompt_choice "Does the README require extra user management? N for none... (G/U/N): " "G U N")"
-
-        case "${choice}" in
-            G)
-                if [[ ! -d "${HOME_DIR}/group" ]]; then
-                    warn "Group directory not found: ${HOME_DIR}/group"
-                    break
-                fi
-                cd "${HOME_DIR}/group" || err "Unable to enter ${HOME_DIR}/group"
-                local group_name
-                group_name="$(tr -d '\r' < group.txt)"
-                [[ -n "${group_name}" ]] || { warn "group.txt is empty."; break; }
-                log "Making group ${group_name}"
-                groupadd "${group_name}" || warn "Group ${group_name} may already exist."
-                while IFS= read -r user; do
-                    [[ -z "${user}" ]] && continue
-                    usermod -aG "${group_name}" "${user}" || warn "Failed to add ${user} to group ${group_name}"
-                done < user.txt
-                break
-                ;;
-            U)
-                if [[ ! -d "${HOME_DIR}/user" ]]; then
-                    warn "User directory not found: ${HOME_DIR}/user"
-                    break
-                fi
-                cd "${HOME_DIR}/user" || err "Unable to enter ${HOME_DIR}/user"
-                local user_name
-                user_name="$(tr -d '\r' < user.txt)"
-                [[ -n "${user_name}" ]] || { warn "user.txt is empty."; break; }
-                log "Making user ${user_name}"
-                useradd -m -s /bin/bash "${user_name}" || warn "User ${user_name} may already exist."
-                log "User ${user_name} made."
-                passwd --expire "${user_name}" || true
-                log "User ${user_name}'s password is set to expire when they login."
-                if prompt_yes_no "Should they be an admin?"; then
-                    usermod -aG sudo,adm "${user_name}" || warn "Failed to add ${user_name} to sudo and adm groups"
-                fi
-                if prompt_yes_no "Should they be added to a group?"; then
-                    read -r -p "Type in the group name here: " group
-                    usermod -aG "${group}" "${user_name}"
-                fi
-                break
-                ;;
-            N)
-                echo "If you need to, use: adduser user or usermod -aG group user"
-                break
-                ;;
-            *)
-                echo "Invalid response."
-                ;;
-        esac
-    done
+    if prompt_choice "Does a new group need to be created with members?";then
+    	read -r -p "What is the name of the new group?" group
+    	groupadd "${group}"|| warn "Group already exists!"
+    	while true; do
+		read -r -p "Type the name of the user that needs to be added. When done, type done." user
+		if [[ "${user}" = "none" ]];then
+			break
+		else
+			usermod -aG "${group}" "${user}"
+		fi
+	done
+    fi
+	if prompt_choice "Does a new user need to be created?"; then
+		read -r -p "What is the name of the new user?" user2
+		useradd "${user2}"
+		if prompt_choice "Do they need to be an admin?"; then
+			usermod -aG sudo "${user2}"
+		fi
+		if prompt_choice "Should their password expire?"; then
+			passwd --expire "${user2}"
+		fi
+		if prompt_choice "Do they need to be added to a group?"; then
+			read -r -p "What is the name of the group they need to be added to?" group2
+			usermod -aG "${group2}"
+		fi
+		log "Changing their password!"
+		echo "${user2}:$(pwgen -sy 20 1)" | chpasswd
+	fi
+	
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -453,36 +441,57 @@ misc_sec() {
     echo "Restricting users from dmesg!"
     echo "kernel.dmesg_restrict=1" | tee -a /etc/sysctl.d/6-dmesg-sudo.conf >/dev/null
 
-    log "Changing all users and admins' password ages to 60 days!"
+    log "Changing all users and admins' max password ages to 60 days!"
     while IFS= read -r user; do
         [[ -z "${user}" ]] && continue
         if [[ "${user}" != "${TARGET_USER}" ]]; then
             chage -M 60 "${user}" || warn "Failed to set password max age for ${user}"
         fi
     done < <(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
-
     log "All unhidden users' maximum password age (not yours) was set to 60 days."
+    log "Changing all admins and users' min password age to 20 days!" 
+    while IFS= read -r user; do
+        [[ -z "${user}" ]] && continue
+        if [[ "${user}" != "${TARGET_USER}" ]]; then
+            chage -m 20 "${user}" || warn "Failed to set password max age for ${user}"
+        fi
+     	done < <(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
+        
+
+    log "All unhidden users' minimum password age (not yours) was set to 20 days."
     log "Changing sysctl parameters!"
 
-    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.rp_filter" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.rp_filter" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_source_route" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_source_route" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_redirects" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_redirects" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.send_redirects" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.log_martians" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_echo_ignore_broadcasts" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_ignore_bogus_error_responses" "1"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.ip_forward" "0"
-    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_rfc1337" "1"
-    set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space" "2"
-    set_config_value "/etc/sysctl.conf" "fs.suid_dumpable" "0"
-    set_config_value "/etc/sysctl.conf" "fs.protected_hardlinks" "1"
-    set_config_value "/etc/sysctl.conf" "fs.protected_symlinks" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_syncookies=" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.rp_filter=" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.rp_filter=" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_source_route=" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_source_route=" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.accept_redirects=" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.default.accept_redirects=" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.send_redirects=" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.conf.all.log_martians=" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_echo_ignore_broadcasts=" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.icmp_ignore_bogus_error_responses=" "1"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.ip_forward=" "0"
+    set_config_value "/etc/sysctl.conf" "net.ipv4.tcp_rfc1337=" "1"
+    set_config_value "/etc/sysctl.conf" "kernel.randomize_va_space=" "2"
+    set_config_value "/etc/sysctl.conf" "fs.suid_dumpable=" "0"
+    set_config_value "/etc/sysctl.conf" "fs.protected_hardlinks=" "1"
+    set_config_value "/etc/sysctl.conf" "fs.protected_symlinks=" "1"
+	log "Edit sysctl.conf to remove spaces between parameters and statuses before continuing!"
+	read -r -p "Press [Enter] to continue once done... " </dev/tty
+	sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
+	
+	set_config_value "/etc/lightdm/lightdm.conf" "allow-guest=" "0"
+	log "Edit lightdm.conf to remove spaces between parameters and statuses before continuing!"
+	read -r -p "Press [Enter] to continue once done... " </dev/tty
+	
+	if cat /etc/sudoers|grep "NOPASSWD";then
+		log "User with no passsword sudo perms found! Edit with visudo now!"
+		read -r -p "Press [Enter] to continue!" </dev/tty
+	fi
 
-    sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
+    
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -490,37 +499,44 @@ misc_sec() {
 }
 
 configure_ssh() {
-    log "Checking SSH settings..."
-    if ! prompt_yes_no "Does the README say users need to log in via SSH?"; then
-        if prompt_yes_no "Would you like to attempt to uninstall SSH?"; then
-            apt-get purge -y openssh-server || warn "Failed to purge openssh-server"
-            return 0
-        else
-            log "Stopping and disabling sshd!"
-            systemctl stop ssh || warn "Stopping sshd returned a non-zero error code!"
-            systemctl disable ssh || warn "Disabling sshd returned a non-zero error code!"
-            return 0
-        fi
+    log "Looking for sshd!"
+    if pgrep sshd; then
+    	if ! prompt_yes_no "sshd found! Does the README say users need to log in via SSH?"; then
+        	if prompt_yes_no "Would you like to stop, disable, and uninstall SSH?"; then
+            		systemctl stop sshd|| warn "Failed to stop sshd!"
+            		systemctl disable sshd || warn "Failed to stop sshd!"
+            		apt-get purge -y openssh-server || warn "Failed to purge openssh-server"
+            		return 0
+        	else
+            		log "Make sure to get rid of it at some point!"
+            		return 0
+        	fi
+    	
+
+    	else
+    		log "sshd found!"
+    		log "Securing sshd!"
+    		local ssh_config="/etc/ssh/sshd_config"
+    		if [[ ! -f "${ssh_config}" ]]; then
+        		warn "No sshd_config file found. Skipping SSH hardening."
+        		return 0
+    		fi
+
+    		set_config_value "${ssh_config}" "PermitRootLogin" "no"
+    		set_config_value "${ssh_config}" "UsePAM" "yes"
+    		set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
+    		set_config_value "${ssh_config}" "DisableForwarding" "yes"
+    		set_config_value "${ssh_config}" "X11Forwarding" "no"
+    		set_config_value "${ssh_config}" "MaxAuthTries" "6"
+    		set_config_value "${ssh_config}" "PermitTunnel" "no"
+    		set_config_value "${ssh_config}" "GatewayPorts" "no"
+
+    		log "SSH has been secured, reloading SSH now..."
+    		systemctl reload ssh || warn "Failed to reload SSH service."
+    	fi
+    else
+    	log "sshd has not been found running on the machine!"
     fi
-
-    log "Securing SSH!"
-    local ssh_config="/etc/ssh/sshd_config"
-    if [[ ! -f "${ssh_config}" ]]; then
-        warn "No sshd_config file found. Skipping SSH hardening."
-        return 0
-    fi
-
-    set_config_value "${ssh_config}" "PermitRootLogin" "no"
-    set_config_value "${ssh_config}" "UsePAM" "yes"
-    set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
-    set_config_value "${ssh_config}" "DisableForwarding" "yes"
-    set_config_value "${ssh_config}" "X11Forwarding" "no"
-    set_config_value "${ssh_config}" "MaxAuthTries" "6"
-    set_config_value "${ssh_config}" "PermitTunnel" "no"
-    set_config_value "${ssh_config}" "GatewayPorts" "no"
-
-    log "SSH has been secured, reloading SSH now..."
-    systemctl reload ssh || warn "Failed to reload SSH service."
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -538,7 +554,9 @@ root_lock() {
 
 sysrq() {
     echo "Disabling sysrq!"
-    set_config_value "/etc/sysctl.conf" "kernel.sysrq" "0"
+    set_config_value "/etc/sysctl.conf" "kernel.sysrq=" "0"
+	log "Edit sysctl.conf to remove spaces between parameters and statuses before continuing!"
+	read -r -p "Press [Enter] to continue once done... " </dev/tty
     sysctl --system >/dev/null || warn "sysctl --system returned a non-zero exit status."
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -580,9 +598,9 @@ nmap_machine() {
         apt-get install -y nmap >/dev/null
     fi
     log "Scanning ports!"
-    nmap -sT -oN "${HOME_DIR}/nmap.txt" localhost
-    echo "This machine's ports have been scanned, output is in ${HOME_DIR}/nmap.txt"
-    echo "Take a look; more information can be found at speedguide.net or via ss -tlnp."
+    nmap -sT -p - -oN "${HOME_DIR}/nmap.txt" localhost
+    log "This machine's ports have been scanned, output is in ${HOME_DIR}/nmap.txt"
+    log "Take a look; more information can be found at speedguide.net or via ss -tlnp."
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -591,7 +609,7 @@ nmap_machine() {
 
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/FTP/Mysql/Php/N): " "X A F M N P")"
+    choice=$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/Ftp/Mysql/Php/N): " "X A F M N P")
 
     case "${choice}" in
         X)
@@ -680,14 +698,21 @@ EOF
             echo "Invalid response."
             ;;
     esac
-    for webfile in apache2 mysqld mariadb vsftpd nginx; do
+    for webfile in apache2 mysqld mariadb vsftpd nginx dovecot exim4 smbd; do
         if pgrep ${webfile}; then
             if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
                 systemctl stop ${webfile}
                 systemctl disable ${webfile}
-                apt purge ${webfile}
+                if prompt_yes_no "Confirm delete ${webfile?}"; then
+                	apt purge ${webfile}
+                else
+                	if prompt_yes_no "Would you like to reinstate ${webfile}?"; then
+                		systemctl enable ${webfile}
+                		systemctl start ${webfile}
+                	fi
+                fi
             else
-                echo "Make sure to stop it for points!"
+                echo "Make sure to stop ${webfile} for points!"
             fi
         fi
     done
@@ -759,6 +784,7 @@ unauth_files() {
 pwd_pol() {
     log "Adding a password complexity policy!"
     sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+    log "Removing nullok from common-auth!"
     sed -i 's/nullok//g' /etc/pam.d/common-auth
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -770,43 +796,24 @@ virus() {
     log "Scanning for viruses!"
     if dpkg -s clamav >/dev/null 2>&1; then
         freshclam || warn "freshclam returned non-zero"
-        clamscan -r -i -l "${HOME_DIR}/virusscan.txt" || warn "clamscan returned non-zero"
+        clamscan -r -i -l "${HOME_DIR}/virusscan.txt"  || warn "clamscan returned non-zero"
         log "Virus scan is currently running and output is stored in ${HOME_DIR}/virusscan.txt."
     else
         warn "ClamAV is not installed; skipping antivirus scan."
     fi
 
     if dpkg -s rkhunter >/dev/null 2>&1; then
-        log "Updating the rootkit hunter."
-        rkhunter --update || warn "rkhunter update failed"
         log "Hunting for rootkits and other various malware!"
         rkhunter -c || warn "rkhunter check failed"
     else
         warn "rkhunter not installed; skipping rootkit scan."
     fi
-
-    if prompt_yes_no "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
-        log "Installing Lynis!"
-        cd /usr/local
-        git clone https://github.com/CISOfy/lynis >/dev/null || true
-        if [[ -d lynis ]]; then
-            cd lynis
-            chmod +x lynis
-            ./lynis audit system | tee "${HOME_DIR}"/lynis.txt
-            log "Lynis results have also been saved to lynis.txt, you can check it later."
-            cd "${HOME_DIR}"
-        fi
-    fi
-
-    if [[ -d "${HOME_DIR}/unix-privesc-check" ]]; then
-        log "Checking for common privilege escalation vectors!"
-        (
-            cd "${HOME_DIR}/unix-privesc-check" || exit 1
-            ./upc standard | tee "${HOME_DIR}/upc.txt" || warn "unix-privesc-check returned non-zero"
-        )
-    else
-        warn "unix-privesc-check not found. Skipping privilege escalation scan."
-    fi
+	if [[ -d /usr/local/lynis ]]; then
+		cd /usr/local/lynis
+        	./lynis audit system | tee "${HOME_DIR}"/lynis.txt
+        	log "Lynis results have also been saved to lynis.txt, you can check it later."
+        	cd "${HOME_DIR}"
+	fi
 
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -816,6 +823,12 @@ virus() {
 
 reboot_machine() {
     if prompt_yes_no "Would you like to reboot the machine to apply changes? Warning: This script will not keep running after reboot! (y/n): "; then
+        read -r -p "Press [Enter] to reboot now! "
+        echo "3"
+        sleep 1
+        echo "2"
+        sleep 1
+        echo "1"
         shutdown -r now
     else
         echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
@@ -842,14 +855,13 @@ final_checks() {
 
 cleanup() {
     log "Cleaning up!"
-    log "Removing files needed or created by the script!"
-    log "Keeping the log, though!"
+	log "Removing files needed or created by the script!"
+	log "Keeping the log, though!"
     rm -f /tmp/ftpconfig.txt /tmp/mysqlconfig.txt /tmp/nginxconfig.txt
-    cd "${HOME_DIR}"
-    rm -f users.txt admins.txt machineusers.txt maybebadusers.txt maybebadadmins.txt machineadmins.txt unauthfiles.txt installed_pkgs.txt forensics.txt source.txt nmap.txt hiddenuser.txt upgraded_pkgs.txt uid0.txt virusscan.txt upc.txt lynis.txt
-    rm -rf user group
+	cd "${HOME_DIR}"
+	rm -f users.txt admins.txt machineusers.txt maybebadusers.txt maybebadadmins.txt machineadmins.txt unauthfiles.txt installed_pkgs.txt forensics.txt source.txt nmap.txt hiddenuser.txt upgraded_pkgs.txt
     log "Removing unneeded software and dependencies installed by the script!"
-    apt-get remove -y byobu nmap rkhunter stacer pwgen >/dev/null || true
+    apt-get remove -y byobu nmap rkhunter pwgen >/dev/null || true
     apt-get autoremove -y >/dev/null || true
     apt-get autoclean -y || true
     if [[ ${RUN_ALL} != 1 ]]; then
@@ -913,7 +925,6 @@ kitchen_sink() {
 
 exit_script() {
     clear
-    echo "See you soon!"
     if dpkg -s fastfetch >/dev/null 2>&1; then
         fastfetch --structure logo --logo kali || true
     fi
@@ -932,7 +943,7 @@ inet_check() {
 show_menu() {
     echo "~~~~~~~~~~~~~~~~~~~~~MINT HARDENING SCRIPT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     if dpkg -s fastfetch >/dev/null 2>&1; then
-        fastfetch --structure logo --logo linuxmint || true
+        fastfetch --structure logo || true
     fi
     echo "~~~~~~~~~~~~~~~~Written by: Colin and the rest of BWHS-3 CP19 team~~~~~~~~"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -1002,7 +1013,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||dpkg -i fastfetch-linux-amd64.deb
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||warn "Fastfetch not installed via apt, using dpkg with a deb file now!"; dpkg -i fastfetch-linux-amd64.deb ||warn "fastfetch not installed via dpkg and a deb file, fastfetch features will not work!
     fi
 
     prerequisites

@@ -191,7 +191,6 @@ install_packages() {
     		if [[ -d lynis ]]; then
         		cd lynis
 			chmod +x lynis
-			local lynisinstall=1
 		else
 			warn "Lynis not installed successfully!"
 		fi
@@ -218,7 +217,7 @@ configure_firewall() {
 
 configure_pam() {
     log "Configuring PAM faillock policies..."
-    mkdir -p /usr/share/pam-configs
+    mkdir -p /usr/share/pam-configs ||true
 
     write_pam_file "/usr/share/pam-configs/faillock" "Name: Enforce failed login attempt counter
 Default: no
@@ -320,7 +319,7 @@ check_and_manage_users() {
             echo "Make sure to delete them for points!"
         fi
     else
-        log "No suspect admins found, but this doesn't mean they aren't there! Manually check for them after the script is done!"
+        log "No suspect users found, but this doesn't mean they aren't there! Manually check for them after the script is done!"
     fi
 
     awk -F: '$3 == 0 {print $1}' /etc/passwd | grep -v '^root$' > "${HOME_DIR}/uid0.txt"
@@ -519,27 +518,29 @@ configure_ssh() {
             		log "Make sure to get rid of it at some point!"
             		return 0
         	fi
+    	
+
+    	else
+    		log "sshd found!"
+    		log "Securing sshd!"
+    		local ssh_config="/etc/ssh/sshd_config"
+    		if [[ ! -f "${ssh_config}" ]]; then
+        		warn "No sshd_config file found. Skipping SSH hardening."
+        		return 0
+    		fi
+
+    		set_config_value "${ssh_config}" "PermitRootLogin" "no"
+    		set_config_value "${ssh_config}" "UsePAM" "yes"
+    		set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
+    		set_config_value "${ssh_config}" "DisableForwarding" "yes"
+    		set_config_value "${ssh_config}" "X11Forwarding" "no"
+    		set_config_value "${ssh_config}" "MaxAuthTries" "6"
+    		set_config_value "${ssh_config}" "PermitTunnel" "no"
+    		set_config_value "${ssh_config}" "GatewayPorts" "no"
+
+    		log "SSH has been secured, reloading SSH now..."
+    		systemctl reload ssh || warn "Failed to reload SSH service."
     	fi
-
-    else
-    	log "Securing SSH!"
-    	local ssh_config="/etc/ssh/sshd_config"
-    	if [[ ! -f "${ssh_config}" ]]; then
-        	warn "No sshd_config file found. Skipping SSH hardening."
-        	return 0
-    	fi
-
-    	set_config_value "${ssh_config}" "PermitRootLogin" "no"
-    	set_config_value "${ssh_config}" "UsePAM" "yes"
-    	set_config_value "${ssh_config}" "PermitEmptyPasswords" "no"
-    	set_config_value "${ssh_config}" "DisableForwarding" "yes"
-    	set_config_value "${ssh_config}" "X11Forwarding" "no"
-    	set_config_value "${ssh_config}" "MaxAuthTries" "6"
-    	set_config_value "${ssh_config}" "PermitTunnel" "no"
-    	set_config_value "${ssh_config}" "GatewayPorts" "no"
-
-    	log "SSH has been secured, reloading SSH now..."
-    	systemctl reload ssh || warn "Failed to reload SSH service."
     else
     	log "sshd has not been found running on the machine!"
     fi
@@ -615,7 +616,7 @@ nmap_machine() {
 
 configure_web_services() {
     local choice
-    choice="$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/Ftp/Mysql/Php/N): " "X A F M N P")"
+    choice=$(prompt_choice "Is the computer running a web or fileshare service that has been specified in the README? (nginX/Apache/Ftp/Mysql/Php/N): " "X A F M N P")
 
     case "${choice}" in
         X)
@@ -709,7 +710,7 @@ EOF
             if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
                 systemctl stop ${webfile}
                 systemctl disable ${webfile}
-                if prompt_yes_no "Confirm delete ${webfile?"; then
+                if prompt_yes_no "Confirm delete ${webfile?}"; then
                 	apt purge ${webfile}
                 else
                 	if prompt_yes_no "Would you like to reinstate ${webfile}?"; then
@@ -718,7 +719,7 @@ EOF
                 	fi
                 fi
             else
-                echo "Make sure to stop it for points!"
+                echo "Make sure to stop ${webfile}for points!"
             fi
         fi
     done
@@ -830,6 +831,11 @@ virus() {
 reboot_machine() {
     if prompt_yes_no "Would you like to reboot the machine to apply changes? Warning: This script will not keep running after reboot! (y/n): "; then
         read -r -p "Press [Enter] to reboot now! "
+        echo "3"
+        sleep 1
+        echo "2"
+        sleep 1
+        echo "1"
         shutdown -r now
     else
         echo "Not rebooting the machine, make sure to do it at some point if you haven't already."
@@ -1014,7 +1020,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch || dpkg -i fastfetch-linux-amd64.deb || warn "Both methods of installing fastfetch failed!"
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||warn "Fastfetch not installed via apt, using dpkg with a deb file now!"; dpkg -i fastfetch-linux-amd64.deb ||warn "fastfetch not installed via dpkg and a deb file, fastfetch features will not work!
     fi
 
     prerequisites
