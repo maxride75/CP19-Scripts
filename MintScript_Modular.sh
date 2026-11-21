@@ -187,6 +187,7 @@ install_packages() {
 			chmod +x lynis
 		else
 			warn "Lynis not installed successfully!"
+		fi
 	fi
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
@@ -1013,7 +1014,7 @@ main() {
 
     log "Installing fastfetch! AGAIN, DO NOT PRESS [Enter]!"
     if ! dpkg -s fastfetch >/dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||warn "Fastfetch not installed via apt, using dpkg with a deb file now!"; dpkg -i fastfetch-linux-amd64.deb ||warn "fastfetch not installed via dpkg and a deb file, fastfetch features will not work!
+        DEBIAN_FRONTEND=noninteractive apt-get install -y fastfetch ||warn "Fastfetch not installed via apt, using dpkg with a deb file now!"; dpkg -i fastfetch-linux-amd64.deb ||warn "fastfetch not installed via dpkg and a deb file, fastfetch features will not work!"
     fi
 
     prerequisites
