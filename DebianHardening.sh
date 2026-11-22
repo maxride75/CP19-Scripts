@@ -158,6 +158,12 @@ EOF
 		log "apt sources updated!"
 		if prompt_yes_no "Would you like to run the updates in the background?"; then
 			log "Proceeding with package updates..."
+			for held in apt-mark showhold; do
+				log "Package ${held} is held, meaning that it won't update."
+				log "Unholding ${held}"
+				apt-mark unhold ${held}||warn "Package ${held} failed to unhold!"
+				log "Unheld ${held}"
+			done
 			apt-get update >/dev/null || warn "Package update returned a non-zero exit code!"
 			apt list --upgradable > "${HOME_DIR}/upgraded_pkgs.txt" 2>/dev/null || true
 			apt-get upgrade -y >/dev/null || warn "Package upgrade returned a non-zero exit code."
@@ -183,7 +189,7 @@ EOF
 
 install_packages() {
     log "Installing required packages..."
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps || warn "Packages were not installed successfully!"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw stacer pwgen libpam-pwquality clamav clamav-daemon rkhunter gedit procps rsyslog auditd apparmor || warn "Packages were not installed successfully!"
     if prompt_choice "Would you like to install Lynis, a comprehensive security auditing tool for the machine?"; then
 		log "Installing Lynis!"
 		cd /usr/local
@@ -204,8 +210,11 @@ install_packages() {
 configure_firewall() {
     if dpkg -s ufw >/dev/null 2>&1; then
         log "Enabling UFW firewall..."
+		ufw default deny incoming
+		ufw default allow outgoing
         ufw --force enable >/dev/null || warn "UFW enable command returned non-zero; check status manually."
-        log "Firewall has been enabled!"
+		ufw logging on
+        log "Firewall has been enab6led!"
     else
         warn "Please install ufw before configuring the firewall!"
     fi
@@ -498,7 +507,12 @@ misc_sec() {
 		read -r -p "Press [Enter] to continue!" </dev/tty
 	fi
 
-    
+ 	systemctl mask ctrl-alt-del.target
+	echo '* hard core 0' | sudo tee -a /etc/security/limits.conf
+	log "Looking for tampered packages!"
+	sudo dpkg --verify | grep -v ' c ' >> ${HOME_DIR}/tamp_pkgs.txt &
+	log "Make sure to check ${HOME_DIR}/tamp_pkgs.txt for anything with a 5, that means it is tampered with!"
+	systemctl --enable --now rsyslog auditd apparmor
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
@@ -540,6 +554,8 @@ configure_ssh() {
 
     		log "SSH has been secured, reloading SSH now..."
     		systemctl reload ssh || warn "Failed to reload SSH service."
+			log "Looking for unauthorized ssh keys!"
+			sudo find / -name 'authorized_keys*' 2>/dev/null -exec ls -la {} \; -exec cat {} \;
     	fi
     else
     	log "sshd has not been found running on the machine!"
@@ -705,7 +721,38 @@ EOF
             echo "Invalid response."
             ;;
     esac
-    for webfile in apache2 mysqld mariadb vsftpd nginx dovecot exim4 smbd; do
+	            cat > "$HOME_DIR}"/badsrv.txt <<'EOF'
+telnetd
+inetutils-telnetd
+vsftpd
+proftpd-core
+pure-ftpd
+apache2
+nginx
+mysql-server
+mariadb-server
+postgresql
+samba
+snmpd
+nfs-kernel-server
+rpcbind
+cups
+avahi-daemon
+x11vnc
+vino
+xrdp
+bind9
+postfix
+dovecot-core
+squid
+tftpd-hpa
+xinetd
+openbsd-inetd
+rsh-server
+nis
+exim4
+EOF
+    for webfile in $(cat badsrv.txt); do
         if pgrep ${webfile}; then
             if prompt_yes_no "${webfile} is running on this machine! Would you like to stop, disable, and uninstall it?"; then
                 systemctl stop ${webfile}
@@ -733,7 +780,7 @@ prohibited_pkgs() {
     local pkg="hollywood"
     apt list --installed | grep -v '\<lib' > "${HOME_DIR}/installed_pkgs.txt"
     log "Removing bad packages!"
-    apt-get purge -y john hydra transmission-gtk warpinator ophcrack doona xprobe squid os-prober aisleriot zangband || true
+    apt-get purge -y wireshark john hydra aircrack ophcrack hashcat nikto sqlmap ettercap metasploit medusa kismet dsniff aisleriot mahjongg minetest supertux freeciv 0ad wesnoth bsdgames steam || true
     apt-get autopurge -y || true
     log "Definitely bad packages have been removed, but other packages like Samba, Nginx, and FTP have not been removed."
     log "If you want to remove other software, Synaptic is a good place to start!"
@@ -790,9 +837,20 @@ unauth_files() {
 
 pwd_pol() {
     log "Adding a password complexity policy!"
-    sed -i '/^password.*pam_unix.so/a password required pam_pwhistory.so remember=5 minlen=12 ucredit=-1 ocredit=-1 dcredit=-1 lcredit=-1' /etc/pam.d/common-password
+    local pam_pwquality=/etc/security/pwquality.conf
+	set_config_value "${pam_quality}" "minlen =" "12"
+	set_config_value "${pam_quality}" "ucredit =" "-1"
+	set_config_value "${pam_quality}" "lcredit =" "-1"
+	set_config_value "${pam_quality}" "dcredit =" "-1"
+	set_config_value "${pam_quality}" "ocredit =" "-1"
+	set_config_value "${pam_quality}" "difok =" "3"
+	set_config_value "${pam_quality}" "maxrepeat =" "3"
+	set_config_value "${pam_quality}" "usercheck =" "1"
+	set_config_value "${pam_quality}" "dictcheck =" "1"
+	set_config_value "${pam_quality}" "enforce_for_root" "deleteme"
+	read -r -p "Remove deleteme from ${pam_pwquality}, then press [Enter] to continue... "
     log "Removing nullok from common-auth!"
-    sed -i 's/nullok//g' /etc/pam.d/common-auth
+    sed -i 's/ nullok//' /etc/pam.d/common-auth
     if [[ ${RUN_ALL} != 1 ]]; then
         read -r -p "Returning to the menu! Press [Enter] to continue... " </dev/tty
         menu
