@@ -575,7 +575,7 @@ function Search-UnauthorizedFiles {
     )
 
     $targetExtensions = @(
-        '.mp3', '.wav', '.flac', '.m4a', '.aac', '.zip', '.rar', '.7z', '.tar', '.gz', '.tgz', '.bz2', '.iso'
+        '.mp3', '.wav', '.flac', '.m4a', '.aac', '.zip', '.rar', '.7z', '.tar', '.gz', '.tgz', '.bz2', '.iso' '.exe' '.ogg'
     )
 
     $matches = @()
